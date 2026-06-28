@@ -1,0 +1,91 @@
+{
+ "actions": [],
+ "creation": "2026-06-29 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled",
+  "column_break_main",
+  "enable_delivery_logging",
+  "section_break_worker",
+  "max_publish_attempts",
+  "retry_backoff_seconds",
+  "column_break_worker",
+  "worker_batch_size",
+  "retention_days"
+ ],
+ "fields": [
+  {
+   "default": "0",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "enable_delivery_logging",
+   "fieldtype": "Check",
+   "label": "Enable Delivery Logging"
+  },
+  {
+   "fieldname": "section_break_worker",
+   "fieldtype": "Section Break",
+   "label": "Worker & Retry"
+  },
+  {
+   "default": "5",
+   "fieldname": "max_publish_attempts",
+   "fieldtype": "Int",
+   "label": "Max Publish Attempts"
+  },
+  {
+   "default": "60",
+   "fieldname": "retry_backoff_seconds",
+   "fieldtype": "Int",
+   "label": "Retry Backoff Seconds"
+  },
+  {
+   "fieldname": "column_break_worker",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "50",
+   "fieldname": "worker_batch_size",
+   "fieldtype": "Int",
+   "label": "Worker Batch Size"
+  },
+  {
+   "default": "30",
+   "fieldname": "retention_days",
+   "fieldtype": "Int",
+   "label": "Retention Days"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-06-29 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Frappe Event Bus",
+ "name": "Event Bus Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
