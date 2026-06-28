@@ -1,0 +1,129 @@
+{
+ "actions": [],
+ "autoname": "field:rule_name",
+ "creation": "2026-06-29 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "rule_name",
+  "enabled",
+  "column_break_head",
+  "reference_doctype",
+  "event_type",
+  "section_break_match",
+  "condition",
+  "section_break_message",
+  "message_template",
+  "deduplication_key_template",
+  "description",
+  "section_break_dest",
+  "destinations"
+ ],
+ "fields": [
+  {
+   "fieldname": "rule_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Rule Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Reference DocType",
+   "options": "DocType",
+   "reqd": 1
+  },
+  {
+   "fieldname": "event_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Event Type",
+   "options": "after_insert\non_update\non_submit\non_cancel\non_trash",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_match",
+   "fieldtype": "Section Break",
+   "label": "Match Condition"
+  },
+  {
+   "description": "Optional Python expression evaluated with frappe.safe_eval against {doc}. Empty matches all.",
+   "fieldname": "condition",
+   "fieldtype": "Code",
+   "label": "Condition",
+   "options": "Python"
+  },
+  {
+   "fieldname": "section_break_message",
+   "fieldtype": "Section Break",
+   "label": "Message"
+  },
+  {
+   "fieldname": "message_template",
+   "fieldtype": "Link",
+   "label": "Message Template",
+   "options": "Event Bus Message Template",
+   "reqd": 1
+  },
+  {
+   "description": "Optional Jinja template producing a deduplication key (context exposes 'doc').",
+   "fieldname": "deduplication_key_template",
+   "fieldtype": "Data",
+   "label": "Deduplication Key Template"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "section_break_dest",
+   "fieldtype": "Section Break",
+   "label": "Destinations"
+  },
+  {
+   "fieldname": "destinations",
+   "fieldtype": "Table",
+   "label": "Destinations",
+   "options": "Event Bus Rule Destination"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-29 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Frappe Event Bus",
+ "name": "Event Bus Rule",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

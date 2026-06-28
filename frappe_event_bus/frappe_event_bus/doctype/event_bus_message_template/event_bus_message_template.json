@@ -1,0 +1,118 @@
+{
+ "actions": [],
+ "autoname": "field:template_name",
+ "creation": "2026-06-29 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "template_name",
+  "message_type",
+  "column_break_head",
+  "version",
+  "enabled",
+  "description",
+  "section_break_template",
+  "jinja_template",
+  "json_schema",
+  "section_break_example",
+  "example_context",
+  "example_output"
+ ],
+ "fields": [
+  {
+   "fieldname": "template_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Template Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "message_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Message Type"
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "version",
+   "fieldtype": "Data",
+   "label": "Version"
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "section_break_template",
+   "fieldtype": "Section Break",
+   "label": "Payload Template"
+  },
+  {
+   "description": "Jinja template rendered into a JSON payload. Context is exposed as 'doc' and 'context'.",
+   "fieldname": "jinja_template",
+   "fieldtype": "Code",
+   "label": "Jinja Template",
+   "options": "Jinja",
+   "reqd": 1
+  },
+  {
+   "description": "Optional JSON Schema used to validate the rendered payload.",
+   "fieldname": "json_schema",
+   "fieldtype": "Code",
+   "label": "JSON Schema",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "section_break_example",
+   "fieldtype": "Section Break",
+   "label": "Preview"
+  },
+  {
+   "description": "Sample context (JSON) used to render the preview.",
+   "fieldname": "example_context",
+   "fieldtype": "Code",
+   "label": "Example Context",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "example_output",
+   "fieldtype": "Code",
+   "label": "Example Output",
+   "options": "JSON",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-29 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Frappe Event Bus",
+ "name": "Event Bus Message Template",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

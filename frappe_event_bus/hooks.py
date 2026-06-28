@@ -247,3 +247,36 @@ app_license = "gpl-3.0"
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
 
+
+# =============================================================================
+# Frappe Event Bus configuration
+# =============================================================================
+
+# Frontend: Message Template payload preview (Vue 3).
+app_include_js = "/assets/frappe_event_bus/js/payload_preview.bundle.js"
+
+# Generic document-event hook -> rule engine.
+doc_events = {
+	"*": {
+		"after_insert": "frappe_event_bus.rule_engine.handle_event",
+		"on_update": "frappe_event_bus.rule_engine.handle_event",
+		"on_submit": "frappe_event_bus.rule_engine.handle_event",
+		"on_cancel": "frappe_event_bus.rule_engine.handle_event",
+		"on_trash": "frappe_event_bus.rule_engine.handle_event",
+	}
+}
+
+# Drain the outbox on a schedule (retry due / pending messages).
+scheduler_events = {
+	"cron": {
+		"*/5 * * * *": [
+			"frappe_event_bus.publisher.retry.process_outbox",
+		],
+	},
+}
+
+# Providers are contributed by separate provider apps via this hook. Each entry
+# is a dotted path to a callable returning a provider spec dict:
+#   {"name", "label", "connection_doctype", "destination_doctype", "publisher"}
+event_bus_providers = []
+

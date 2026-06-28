@@ -1,0 +1,80 @@
+{
+ "actions": [],
+ "creation": "2026-06-29 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled",
+  "provider",
+  "connection",
+  "destination",
+  "routing_key",
+  "priority",
+  "headers_template"
+ ],
+ "fields": [
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "columns": 2,
+   "fieldname": "provider",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Provider",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "connection",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Connection",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "destination",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Destination",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "routing_key",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Routing Key"
+  },
+  {
+   "default": "0",
+   "fieldname": "priority",
+   "fieldtype": "Int",
+   "label": "Priority"
+  },
+  {
+   "fieldname": "headers_template",
+   "fieldtype": "Code",
+   "label": "Headers Template",
+   "options": "Jinja"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-29 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Frappe Event Bus",
+ "name": "Event Bus Rule Destination",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
