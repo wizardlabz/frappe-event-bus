@@ -7,7 +7,7 @@ from frappe.tests.utils import FrappeTestCase
 
 from frappe_event_bus.providers.interface import publish_failure, publish_success
 from frappe_event_bus.publisher import outbox_worker as ow
-from frappe_event_bus.publisher.outbox_worker import process_pending, process_message
+from frappe_event_bus.publisher.outbox_worker import process_message, process_pending
 from frappe_event_bus.publisher.replay import replay_outbox_message
 from frappe_event_bus.tests.fake_provider import register_fake_provider, reset_flags
 
@@ -67,10 +67,10 @@ def _enable_bus() -> None:
 	frappe.clear_document_cache("Event Bus Settings", "Event Bus Settings")
 
 
-def _make_todo(priority: str = "Medium") -> "frappe.Document":
-	return frappe.get_doc(
-		{"doctype": "ToDo", "description": "eb test", "priority": priority}
-	).insert(ignore_permissions=True)
+def _make_todo(priority: str = "Medium") -> frappe.Document:
+	return frappe.get_doc({"doctype": "ToDo", "description": "eb test", "priority": priority}).insert(
+		ignore_permissions=True
+	)
 
 
 def _outbox_for(todo_name: str) -> list[dict]:
@@ -202,9 +202,7 @@ class TestOutboxWorker(FrappeTestCase):
 		counts = process_pending(batch_size=10)
 		self.assertGreaterEqual(counts["published"], 3)
 		for name in names:
-			self.assertEqual(
-				frappe.db.get_value("Event Bus Outbox Message", name, "status"), "Published"
-			)
+			self.assertEqual(frappe.db.get_value("Event Bus Outbox Message", name, "status"), "Published")
 
 	def test_process_message_skips_already_claimed(self) -> None:
 		# A row already Published (claimed + published by another worker) must not
@@ -218,9 +216,7 @@ class TestOutboxWorker(FrappeTestCase):
 		# Claiming flips Pending -> Publishing and only the first caller wins.
 		name = self._new_outbox()
 		self.assertTrue(ow._claim_message(name))
-		self.assertEqual(
-			frappe.db.get_value("Event Bus Outbox Message", name, "status"), "Publishing"
-		)
+		self.assertEqual(frappe.db.get_value("Event Bus Outbox Message", name, "status"), "Publishing")
 		self.assertFalse(ow._claim_message(name))
 
 	def test_batch_isolates_failures(self) -> None:
@@ -239,12 +235,8 @@ class TestOutboxWorker(FrappeTestCase):
 		finally:
 			ow.process_message = original
 
-		self.assertEqual(
-			frappe.db.get_value("Event Bus Outbox Message", names[0], "status"), "Published"
-		)
-		self.assertEqual(
-			frappe.db.get_value("Event Bus Outbox Message", names[2], "status"), "Published"
-		)
+		self.assertEqual(frappe.db.get_value("Event Bus Outbox Message", names[0], "status"), "Published")
+		self.assertEqual(frappe.db.get_value("Event Bus Outbox Message", names[2], "status"), "Published")
 
 
 class TestReplay(FrappeTestCase):

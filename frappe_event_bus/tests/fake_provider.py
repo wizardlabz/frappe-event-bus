@@ -33,14 +33,14 @@ def fake_provider_spec() -> dict[str, Any]:
 class FakePublisher(EventBusProvider):
 	"""Records published messages and returns a controllable result."""
 
-	def publish(self, message: dict[str, Any]) -> dict[str, Any]:  # noqa: D102
+	def publish(self, message: dict[str, Any]) -> dict[str, Any]:
 		calls = frappe.flags.setdefault("fake_provider_calls", [])
 		calls.append(message)
 		if frappe.flags.get("fake_provider_raise"):
 			raise RuntimeError("fake provider boom")
 		return frappe.flags.get("fake_provider_result") or publish_success("fake-msg-id")
 
-	def test_publish(self, connection_doc, destination_doc, payload, headers=None):  # noqa: D102
+	def test_publish(self, connection_doc, destination_doc, payload, headers=None):
 		return publish_success("fake-test-id", {"echo": payload})
 
 

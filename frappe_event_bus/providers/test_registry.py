@@ -10,7 +10,7 @@ from frappe_event_bus.providers.interface import EventBusProvider, publish_succe
 
 
 class _FakePublisher(EventBusProvider):
-	def publish(self, message: dict) -> dict:  # noqa: D102
+	def publish(self, message: dict) -> dict:
 		return publish_success("fake")
 
 

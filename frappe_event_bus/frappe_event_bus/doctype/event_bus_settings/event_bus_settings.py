@@ -28,6 +28,6 @@ class EventBusSettings(Document):
 	pass
 
 
-def get_settings() -> "EventBusSettings":
+def get_settings() -> EventBusSettings:
 	"""Return the cached Event Bus Settings single document."""
 	return frappe.get_cached_doc("Event Bus Settings")

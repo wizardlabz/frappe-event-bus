@@ -19,9 +19,7 @@ class TestComputeBackoff(unittest.TestCase):
 		self.assertEqual(compute_backoff_seconds(attempt=-5, base_seconds=30), 30)
 
 	def test_capped(self) -> None:
-		self.assertEqual(
-			compute_backoff_seconds(attempt=20, base_seconds=60, max_seconds=3600), 3600
-		)
+		self.assertEqual(compute_backoff_seconds(attempt=20, base_seconds=60, max_seconds=3600), 3600)
 
 	def test_base_zero(self) -> None:
 		self.assertEqual(compute_backoff_seconds(attempt=5, base_seconds=0), 0)

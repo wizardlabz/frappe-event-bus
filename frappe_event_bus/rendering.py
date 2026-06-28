@@ -58,15 +58,13 @@ def render_payload(
 	"""
 	try:
 		rendered = frappe.render_template(template, context)
-	except Exception as exc:  # noqa: BLE001 - jinja raises many error types
+	except Exception as exc:
 		raise TemplateRenderError(frappe._("Failed to render template: {0}").format(exc)) from exc
 
 	try:
 		parsed = json.loads(rendered)
 	except json.JSONDecodeError as exc:
-		raise TemplateRenderError(
-			frappe._("Rendered payload is not valid JSON: {0}").format(exc)
-		) from exc
+		raise TemplateRenderError(frappe._("Rendered payload is not valid JSON: {0}").format(exc)) from exc
 
 	if json_schema:
 		schema = json_schema if isinstance(json_schema, dict) else json.loads(json_schema)
@@ -105,9 +103,7 @@ def _check_type(value: Any, expected_type: str, path: str) -> None:
 		return
 	# bool is a subclass of int; exclude it from number/integer checks.
 	if expected_type in ("number", "integer") and isinstance(value, bool):
-		raise SchemaValidationError(
-			frappe._("Expected {0} at {1}, got boolean").format(expected_type, path)
-		)
+		raise SchemaValidationError(frappe._("Expected {0} at {1}, got boolean").format(expected_type, path))
 	if not isinstance(value, allowed):
 		raise SchemaValidationError(
 			frappe._("Expected {0} at {1}, got {2}").format(expected_type, path, type(value).__name__)
