@@ -279,4 +279,3 @@ scheduler_events = {
 # is a dotted path to a callable returning a provider spec dict:
 #   {"name", "label", "connection_doctype", "destination_doctype", "publisher"}
 event_bus_providers = []
-

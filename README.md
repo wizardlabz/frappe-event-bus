@@ -2,8 +2,9 @@
 
 > Bring event-driven architecture to ERPNext and Frappe.
 
+[![CI](https://github.com/wizardlabz/frappe-event-bus/actions/workflows/ci.yml/badge.svg)](https://github.com/wizardlabz/frappe-event-bus/actions/workflows/ci.yml)
+[![Linter](https://github.com/wizardlabz/frappe-event-bus/actions/workflows/linter.yml/badge.svg)](https://github.com/wizardlabz/frappe-event-bus/actions/workflows/linter.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Status: early development](https://img.shields.io/badge/status-early%20development-orange.svg)](#status)
 
 Frappe Event Bus is a native Frappe/ERPNext app for publishing **durable, observable, replayable** business events to message brokers — RabbitMQ, Kafka, NATS, and more — without writing custom code.
 

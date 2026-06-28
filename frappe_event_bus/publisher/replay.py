@@ -22,9 +22,7 @@ def replay_outbox_message(name: str) -> dict[str, Any]:
 	outbox = frappe.get_doc("Event Bus Outbox Message", name)
 	if outbox.status not in REPLAYABLE_STATUSES:
 		frappe.throw(
-			frappe._("Outbox Message '{0}' in status '{1}' cannot be replayed.").format(
-				name, outbox.status
-			)
+			frappe._("Outbox Message '{0}' in status '{1}' cannot be replayed.").format(name, outbox.status)
 		)
 
 	outbox.status = "Pending"

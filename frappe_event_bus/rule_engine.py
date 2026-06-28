@@ -48,7 +48,7 @@ def handle_event(doc: Document, event_type: str) -> None:
 	"""
 	try:
 		_handle_event(doc, event_type)
-	except Exception:  # noqa: BLE001 - must not break the host transaction
+	except Exception:
 		frappe.log_error(
 			title="Event Bus: handle_event failed",
 			message=frappe.get_traceback(),

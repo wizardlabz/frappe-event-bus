@@ -16,4 +16,5 @@ def process_outbox() -> None:
 	if not settings.enabled:
 		return
 	process_pending()
-	frappe.db.commit()  # noqa: tasks run outside a request; persist results
+	# Scheduler tasks run outside a request, so commit to persist the results.
+	frappe.db.commit()

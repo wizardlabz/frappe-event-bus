@@ -42,7 +42,7 @@ def process_pending(batch_size: int | None = None) -> dict[str, int]:
 		frappe.db.savepoint("eb_outbox_msg")
 		try:
 			outcome = process_message(name)
-		except Exception:  # noqa: BLE001 - isolate one message's failure from the batch
+		except Exception:
 			frappe.db.rollback(save_point="eb_outbox_msg")
 			frappe.log_error(
 				title="Event Bus: process_message failed",
@@ -149,7 +149,7 @@ def _safe_publish(provider: str, message: dict[str, Any]) -> dict[str, Any]:
 	"""Invoke the provider publisher, converting exceptions into failures."""
 	try:
 		return get_publisher(provider).publish(message)
-	except Exception as exc:  # noqa: BLE001 - any provider error is a delivery failure
+	except Exception as exc:
 		frappe.log_error(
 			title="Event Bus: provider publish raised",
 			message=frappe.get_traceback(),
