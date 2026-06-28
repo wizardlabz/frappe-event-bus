@@ -1,0 +1,25 @@
+.DS_Store
+*.pyc
+*.egg-info
+*.swp
+tags
+node_modules
+__pycache__
+.idea/
+.vscode/
+*.log
+
+# Local / internal working files — never upload these.
+# End-user docs go in docs/. Internal notes, plans, drafts go in _local/.
+/_local/
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.claude/
+.cursor/
+.aider*
+*.draft.md
+*.local.md
+/notes/
+/plans/
+/scratch/
