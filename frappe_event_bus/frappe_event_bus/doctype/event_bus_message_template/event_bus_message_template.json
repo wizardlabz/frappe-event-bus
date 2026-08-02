@@ -8,9 +8,7 @@
   "tab_template",
   "template_name",
   "applies_to_doctype",
-  "message_type",
   "column_break_head",
-  "version",
   "enabled",
   "description",
   "section_break_template",
@@ -45,18 +43,8 @@
    "options": "DocType"
   },
   {
-   "fieldname": "message_type",
-   "fieldtype": "Data",
-   "label": "Message Type"
-  },
-  {
    "fieldname": "column_break_head",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "version",
-   "fieldtype": "Data",
-   "label": "Version"
   },
   {
    "default": "1",
@@ -135,5 +123,6 @@
  ],
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }

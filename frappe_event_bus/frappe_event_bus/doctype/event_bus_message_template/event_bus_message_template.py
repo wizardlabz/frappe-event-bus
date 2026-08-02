@@ -29,9 +29,7 @@ class EventBusMessageTemplate(Document):
 		example_output: DF.Code | None
 		jinja_template: DF.Code
 		json_schema: DF.Code | None
-		message_type: DF.Data | None
 		template_name: DF.Data
-		version: DF.Data | None
 	# end: auto-generated types
 
 	def render(self, context: dict[str, Any]) -> str:

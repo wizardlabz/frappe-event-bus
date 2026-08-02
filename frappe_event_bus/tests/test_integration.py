@@ -21,7 +21,7 @@ def _ensure_template() -> str:
 			{
 				"doctype": "Event Bus Message Template",
 				"template_name": TEMPLATE_NAME,
-				"message_type": "todo.event",
+				
 				"enabled": 1,
 				"jinja_template": '{"todo": "{{ doc.name }}", "priority": "{{ doc.priority }}"}',
 			}
