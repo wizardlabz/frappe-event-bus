@@ -154,6 +154,18 @@ It passes only because the fixture data is clean. Verified against a live site:
 the same shape with a value containing `"` raises
 `TemplateRenderError: Rendered payload is not valid JSON`.
 
+### Frappe escapes HTML before the bus ever sees it
+
+Verified end to end: a ToDo saved with `<tag> & 'apos'` is stored as
+`&lt;tag&gt; &amp; 'apos'`. Frappe sanitizes on save — for `Text Editor` *and*
+plain `Data` fields — so the escaped form is what is in the database and
+therefore what gets published. The generator transmits the stored value
+faithfully; it does not add escaping of its own.
+
+Consumers receive HTML-escaped text for any field a user typed markup into.
+That is a property of the source data, not of this feature, but it is the kind
+of thing that looks like a payload bug when you first see it downstream.
+
 ### Missing fields fail silently
 
 Verified: `doc.<nonexistent>` renders as `[]`, not an error — Frappe's
