@@ -6,6 +6,7 @@
  "engine": "InnoDB",
  "field_order": [
   "template_name",
+  "applies_to_doctype",
   "message_type",
   "column_break_head",
   "version",
@@ -28,9 +29,17 @@
    "unique": 1
   },
   {
+   "description": "Optional. Bind this template to a DocType to enable the field picker and real-document preview. Leave blank for a generic, reusable template.",
+   "fieldname": "applies_to_doctype",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Applies To DocType",
+   "options": "DocType"
+  },
+  {
    "fieldname": "message_type",
    "fieldtype": "Data",
-   "in_list_view": 1,
    "label": "Message Type"
   },
   {

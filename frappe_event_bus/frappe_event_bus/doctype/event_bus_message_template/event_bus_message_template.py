@@ -22,6 +22,7 @@ class EventBusMessageTemplate(Document):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
+		applies_to_doctype: DF.Link | None
 		description: DF.SmallText | None
 		enabled: DF.Check
 		example_context: DF.Code | None

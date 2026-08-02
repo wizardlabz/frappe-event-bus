@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import frappe
 from frappe.model.document import Document
 
 
@@ -31,4 +32,27 @@ class EventBusRule(Document):
 		rule_name: DF.Data
 	# end: auto-generated types
 
-	pass
+	def validate(self) -> None:
+		"""Reject a template bound to a different doctype than this rule targets."""
+		self._validate_template_binding()
+
+	def _validate_template_binding(self) -> None:
+		"""Throw if the linked template declares a conflicting ``applies_to_doctype``.
+
+		A template with a blank ``applies_to_doctype`` is generic and matches any
+		rule. Catching a mismatch here turns a silent background-job render
+		failure into an error at save time.
+		"""
+		if not self.message_template:
+			return
+
+		applies_to = frappe.db.get_value(
+			"Event Bus Message Template", self.message_template, "applies_to_doctype"
+		)
+		if applies_to and applies_to != self.reference_doctype:
+			frappe.throw(
+				frappe._("Message Template {0} applies to {1}, but this rule targets {2}.").format(
+					self.message_template, applies_to, self.reference_doctype
+				),
+				title=frappe._("Template DocType Mismatch"),
+			)
