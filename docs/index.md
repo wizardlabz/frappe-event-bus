@@ -25,6 +25,7 @@ The core is broker-agnostic. Install a provider app and it registers itself via 
 ## Development
 
 - [Provider interface](development/provider-interface.md) — the contract every provider implements (`publish`, `test_publish`, `validate_connection`, `validate_destination`) and the normalized message/result shapes.
+- [Template authoring & form layout](development/template-authoring-design.md) — design for the doctype-aware template field picker (`Insert from DocType`), optional `applies_to_doctype` binding, and tabbed form layouts.
 
 ---
 
