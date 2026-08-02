@@ -273,6 +273,9 @@ doc_events = {
 
 # Drain the outbox on a schedule (retry due / pending messages).
 scheduler_events = {
+	"daily": [
+		"frappe_event_bus.publisher.retention.purge_outbox",
+	],
 	"cron": {
 		"*/5 * * * *": [
 			"frappe_event_bus.publisher.retry.process_outbox",

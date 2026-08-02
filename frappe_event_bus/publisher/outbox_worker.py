@@ -67,7 +67,9 @@ def _select_due_messages(limit: int) -> list[str]:
 			["status", "=", "Pending"],
 			["next_retry_at", "<=", now],
 		],
-		order_by="creation asc",
+		# Priority is ascending — lower publishes first. Creation is the
+		# tie-break so equal-priority messages stay FIFO.
+		order_by="priority asc, creation asc",
 		limit=limit,
 		pluck="name",
 	)

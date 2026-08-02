@@ -13,6 +13,7 @@
   "connection",
   "destination",
   "routing_key",
+  "priority",
   "section_break_ref",
   "reference_doctype",
   "reference_document",
@@ -171,6 +172,15 @@
    "fieldname": "last_error",
    "fieldtype": "Small Text",
    "label": "Last Error"
+  },
+  {
+   "default": "0",
+   "description": "Copied from the rule's destination row. Lower numbers publish first.",
+   "fieldname": "priority",
+   "fieldtype": "Int",
+   "label": "Priority",
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "index_web_pages_for_search": 1,
