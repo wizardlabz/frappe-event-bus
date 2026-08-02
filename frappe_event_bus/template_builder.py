@@ -119,3 +119,61 @@ def _build_child(df: Any) -> dict[str, Any]:
 			if cdf.fieldtype not in LAYOUT_FIELDTYPES and cdf.fieldtype not in TABLE_FIELDTYPES
 		],
 	}
+
+
+#: Frappe's built-in Jinja filter, which is ``frappe.as_json``.
+#: NOT Jinja's ``tojson`` — that raises TypeError on Date/Datetime.
+JSON_FILTER = "json"
+
+
+def _value_line(indent: str, key: str, expr: str, last: bool) -> str:
+	"""Render one ``"key": {{ expr | json }}`` line with an optional trailing comma."""
+	return f'{indent}"{key}": {{{{ {expr} | {JSON_FILTER} }}}}{"" if last else ","}'
+
+
+def generate_jinja(doctype: str, selection: dict[str, Any]) -> str:
+	"""Generate an envelope-plus-data Jinja template for ``selection``.
+
+	Args:
+		doctype: The doctype the template is being generated for.
+		selection: ``{"fields": [fieldname, ...], "children": {table: [fieldname, ...]}}``
+
+	Returns:
+		Jinja source that renders to a JSON object. Every value passes through
+		the ``json`` filter so quotes, newlines, ``None`` and dates survive.
+	"""
+	field_names: list[str] = list(selection.get("fields") or [])
+	children: dict[str, list[str]] = {
+		table: columns for table, columns in (selection.get("children") or {}).items() if columns
+	}
+
+	lines = [
+		"{",
+		'  "event": {',
+		_value_line("    ", "type", "context.event_type", False),
+		_value_line("    ", "doctype", "doc.doctype", False),
+		_value_line("    ", "name", "doc.name", True),
+		"  },",
+		'  "data": {',
+	]
+
+	total = len(field_names) + len(children)
+	emitted = 0
+
+	for fieldname in field_names:
+		emitted += 1
+		lines.append(_value_line("    ", fieldname, f"doc.{fieldname}", emitted == total))
+
+	for table, columns in children.items():
+		emitted += 1
+		lines.append(f'    "{table}": [')
+		lines.append(f"      {{%- for row in doc.{table} %}}")
+		lines.append("      {")
+		for index, column in enumerate(columns):
+			lines.append(_value_line("        ", column, f"row.{column}", index == len(columns) - 1))
+		lines.append('      }{{ "," if not loop.last else "" }}')
+		lines.append("      {%- endfor %}")
+		lines.append(f'    ]{"" if emitted == total else ","}')
+
+	lines.extend(["  }", "}"])
+	return "\n".join(lines)
