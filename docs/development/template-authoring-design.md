@@ -180,6 +180,30 @@ Generated Jinja is a snapshot. It does not silently grow when someone adds a
 field to the doctype later — good for safety, at the cost of going stale.
 Detecting staleness is a non-goal here.
 
+## 2a. Two build traps that fail silently
+
+Both cost real debugging time and neither produces a console error.
+
+**Bundle paths in `app_include_js` must be bare names.** `bundled_asset()` only
+rewrites a path that does *not* already start with `/assets`
+(`frappe/utils/jinja_globals.py`). Declaring the full
+`/assets/<app>/js/x.bundle.js` skips the manifest lookup, so Frappe ships the
+raw unbundled ESM source; the browser then hits `import ... from "vue"`, cannot
+resolve the bare specifier, and the whole script dies. Use
+`"template_builder.bundle.js"`, matching erpnext's `"erpnext.bundle.js"`.
+
+**Import Vue from `vue/dist/vue.esm-bundler.js`, not `"vue"`.** These
+components declare markup with the string `template:` option, which requires
+the runtime compiler. `bench build --app <app>` produces a production bundle
+(~63 KB) using Vue's runtime-only build, which ignores `template:` and renders
+an empty comment node — no console error, no warning, because production builds
+strip Vue's dev warnings. The compiler-included import makes the bundle ~147 KB
+and works under both build modes.
+
+Related: `bench build --app <app>` did not register the bundles in
+`sites/assets/assets.json` at all; a full `bench build` did. Prefer the full
+build in this bench.
+
 ## 3. Picker (client)
 
 New `template_builder.bundle.js`, Vue 3, mirroring `payload_preview.bundle.js`.

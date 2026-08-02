@@ -6,7 +6,11 @@
  * `preview_payload` API and renders the JSON output with a validation badge.
  */
 
-import { createApp, defineComponent, onMounted, reactive, ref } from "vue";
+// Import the compiler-included Vue build: these components declare their markup
+// via the string `template:` option, which the runtime-only build silently
+// ignores (it renders an empty comment node, with no console error under a
+// production build). See docs/development/template-authoring-design.md.
+import { createApp, defineComponent, onMounted, reactive, ref } from "vue/dist/vue.esm-bundler.js";
 
 const PayloadPreview = defineComponent({
 	name: "PayloadPreview",

@@ -6,7 +6,11 @@
  * and writes generated Jinja into the always-editable jinja_template field.
  */
 
-import { computed, createApp, defineComponent, reactive } from "vue";
+// Import the compiler-included Vue build: these components declare their markup
+// via the string `template:` option, which the runtime-only build silently
+// ignores (it renders an empty comment node, with no console error under a
+// production build). See docs/development/template-authoring-design.md.
+import { computed, createApp, defineComponent, reactive } from "vue/dist/vue.esm-bundler.js";
 
 const FieldPicker = defineComponent({
 	name: "FieldPicker",
@@ -110,19 +114,19 @@ const FieldPicker = defineComponent({
 					<div v-for="f in state.fields" :key="f.fieldname" class="mb-1">
 						<label :class="{ 'text-muted': !f.selectable }" style="font-weight:normal">
 							<input type="checkbox" v-model="f.checked" :disabled="!f.selectable" />
-							{{ f.label }}
-							<span class="text-muted small">{{ f.fieldtype }}</span>
-							<span v-if="f.note" class="text-muted small">— {{ f.note }}</span>
+							<span>{{ f.label }}</span>
+							<span class="text-muted small ml-2">({{ f.fieldtype }})</span>
+							<span v-if="f.note" class="text-muted small ml-2">— {{ f.note }}</span>
 						</label>
 					</div>
 					<div v-for="c in state.children" :key="c.fieldname" class="mt-3">
-						<div><b>{{ c.label }}</b> <span class="text-muted small">{{ c.child_doctype }}</span></div>
+						<div><b>{{ c.label }}</b> <span class="text-muted small ml-2">({{ c.child_doctype }})</span></div>
 						<div v-for="f in c.fields" :key="f.fieldname" class="ml-3">
 							<label :class="{ 'text-muted': !f.selectable }" style="font-weight:normal">
 								<input type="checkbox" v-model="f.checked" :disabled="!f.selectable" />
-								{{ f.label }}
-								<span class="text-muted small">{{ f.fieldtype }}</span>
-								<span v-if="f.note" class="text-muted small">— {{ f.note }}</span>
+								<span>{{ f.label }}</span>
+								<span class="text-muted small ml-2">({{ f.fieldtype }})</span>
+								<span v-if="f.note" class="text-muted small ml-2">— {{ f.note }}</span>
 							</label>
 						</div>
 					</div>
