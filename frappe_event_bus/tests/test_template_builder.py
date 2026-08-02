@@ -9,6 +9,7 @@ import unittest
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
+from frappe_event_bus import api
 from frappe_event_bus.rendering import render_payload
 from frappe_event_bus.template_builder import build_field_tree, classify_field, generate_jinja
 
@@ -143,3 +144,22 @@ class TestGenerateJinja(FrappeTestCase):
 			render_payload(out, {"doc": doc, "context": {"event_type": "on_trash"}})
 		)
 		self.assertEqual(parsed["data"], {})
+
+
+class TestBuilderApi(FrappeTestCase):
+	"""The picker talks to these two endpoints."""
+
+	def test_get_field_tree_returns_tree(self):
+		tree = api.get_field_tree("ToDo")
+		self.assertEqual(tree["doctype"], "ToDo")
+		self.assertIn("description", {f["fieldname"] for f in tree["fields"]})
+
+	def test_generate_template_accepts_json_string_selection(self):
+		out = api.generate_template(
+			"ToDo", json.dumps({"fields": ["description"], "children": {}})
+		)
+		self.assertIn("{{ doc.description | json }}", out)
+
+	def test_generate_template_accepts_dict_selection(self):
+		out = api.generate_template("ToDo", {"fields": ["description"], "children": {}})
+		self.assertIn("{{ doc.description | json }}", out)

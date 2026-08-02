@@ -70,6 +70,33 @@ def preview_payload(
 		return {"valid": False, "error": str(exc)}
 
 
+@frappe.whitelist()
+def get_field_tree(doctype: str) -> dict[str, Any]:
+	"""Return the two-level picker tree for ``doctype``.
+
+	Args:
+		doctype: DocType to introspect.
+	"""
+	frappe.only_for("System Manager")
+	from frappe_event_bus.template_builder import build_field_tree
+
+	return build_field_tree(doctype)
+
+
+@frappe.whitelist()
+def generate_template(doctype: str, selection: str | dict[str, Any]) -> str:
+	"""Generate Jinja for ``doctype`` from a picker ``selection``.
+
+	Args:
+		doctype: DocType the template targets.
+		selection: ``{"fields": [...], "children": {table: [...]}}``, JSON or dict.
+	"""
+	frappe.only_for("System Manager")
+	from frappe_event_bus.template_builder import generate_jinja
+
+	return generate_jinja(doctype, _as_dict(selection))
+
+
 def _as_dict(value: str | dict[str, Any]) -> dict[str, Any]:
 	"""Coerce a JSON string or dict into a dict."""
 	if isinstance(value, dict):
