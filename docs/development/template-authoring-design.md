@@ -106,19 +106,19 @@ drops headers or a future provider with none:
 ```jinja
 {
   "event": {
-    "type": {{ context.event_type | tojson }},
-    "doctype": {{ doc.doctype | tojson }},
-    "name": {{ doc.name | tojson }},
-    "timestamp": {{ frappe.utils.now() | tojson }}
+    "type": {{ context.event_type | json }},
+    "doctype": {{ doc.doctype | json }},
+    "name": {{ doc.name | json }},
+    "timestamp": {{ frappe.utils.now() | json }}
   },
   "data": {
-    "customer": {{ doc.customer | tojson }},
-    "grand_total": {{ doc.grand_total | tojson }},
+    "customer": {{ doc.customer | json }},
+    "grand_total": {{ doc.grand_total | json }},
     "items": [
       {%- for row in doc.items %}
       {
-        "item_code": {{ row.item_code | tojson }},
-        "qty": {{ row.qty | tojson }}
+        "item_code": {{ row.item_code | json }},
+        "qty": {{ row.qty | json }}
       }
       {{- "," if not loop.last }}
       {%- endfor %}
@@ -127,20 +127,40 @@ drops headers or a future provider with none:
 }
 ```
 
-### `| tojson` is load-bearing
+### `| json` is load-bearing
 
-Every value goes through `| tojson`, which emits the bare JSON value — quoting,
-escaping, `null`, numbers — with no surrounding quotes in the template. Naive
-interpolation produces invalid JSON the moment a value contains `"`, a newline,
-or a backslash, and `render_payload` rejects it at `json.loads`.
+Every value goes through Frappe's built-in `json` filter, which is
+`frappe.as_json` (registered in `frappe/utils/jinja.py:set_filters`). It emits
+the bare JSON value — quoting, escaping, `null` — with no surrounding quotes in
+the template. Naive interpolation produces invalid JSON the moment a value
+contains `"`, a newline, or a backslash, and `render_payload` rejects it at
+`json.loads`.
 
-The existing test fixture has this bug latent:
+**Not Jinja's `tojson`.** Verified against a live site: `tojson` raises
+`TypeError: Object of type datetime is not JSON serializable` on any Date or
+Datetime field, which rules it out for a generator. `frappe.as_json` routes
+through Frappe's `json_handler` and serializes `datetime`, `date`, `timedelta`
+and `Decimal` correctly. `frappe.as_json` is also *not* reachable as
+`{{ frappe.as_json(...) }}` — the `frappe` namespace exposed to templates is a
+restricted proxy. The filter is the only route.
+
+The existing test fixture has the naive-interpolation bug latent:
 
 ```python
 '{"todo": "{{ doc.name }}", "priority": "{{ doc.priority }}"}'   # test_integration.py:26
 ```
 
-It passes only because the fixture data is clean.
+It passes only because the fixture data is clean. Verified against a live site:
+the same shape with a value containing `"` raises
+`TemplateRenderError: Rendered payload is not valid JSON`.
+
+### Missing fields fail silently
+
+Verified: `doc.<nonexistent>` renders as `[]`, not an error — Frappe's
+`Document.__getattr__` treats unknown attributes as empty child tables. A
+template referencing a field that was later deleted emits `[]` rather than
+raising. Generation reads live meta so this cannot happen at authoring time,
+but it is the failure mode if a doctype changes afterwards.
 
 ### Snapshot semantics
 
@@ -244,8 +264,9 @@ something failed.
 - Layout fieldtypes are omitted.
 - Child tables nest exactly one level.
 - **The one that matters:** generated Jinja, rendered with values containing
-  `"`, newlines, backslashes, and `None`, must survive `render_payload`'s
-  `json.loads`.
+  `"`, newlines, backslashes, `None`, `datetime` and `date`, must survive
+  `render_payload`'s `json.loads`. The datetime cases are what rule out
+  Jinja's `tojson`, so they are the regression guard on the filter choice.
 
 **Integration:**
 
