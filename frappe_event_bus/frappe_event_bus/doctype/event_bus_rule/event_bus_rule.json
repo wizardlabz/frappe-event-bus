@@ -5,6 +5,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "tab_rule",
   "rule_name",
   "enabled",
   "column_break_head",
@@ -14,12 +15,19 @@
   "condition",
   "section_break_message",
   "message_template",
-  "deduplication_key_template",
-  "description",
+  "tab_destinations",
   "section_break_dest",
-  "destinations"
+  "destinations",
+  "tab_advanced",
+  "deduplication_key_template",
+  "description"
  ],
  "fields": [
+  {
+   "fieldname": "tab_rule",
+   "fieldtype": "Tab Break",
+   "label": "Rule"
+  },
   {
    "fieldname": "rule_name",
    "fieldtype": "Data",
@@ -82,6 +90,11 @@
    "reqd": 1
   },
   {
+   "fieldname": "tab_advanced",
+   "fieldtype": "Tab Break",
+   "label": "Advanced"
+  },
+  {
    "description": "Optional Jinja template producing a deduplication key (context exposes 'doc').",
    "fieldname": "deduplication_key_template",
    "fieldtype": "Data",
@@ -91,6 +104,11 @@
    "fieldname": "description",
    "fieldtype": "Small Text",
    "label": "Description"
+  },
+  {
+   "fieldname": "tab_destinations",
+   "fieldtype": "Tab Break",
+   "label": "Destinations"
   },
   {
    "fieldname": "section_break_dest",

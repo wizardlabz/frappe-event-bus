@@ -4,6 +4,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "tab_message",
   "status",
   "event_rule",
   "message_template",
@@ -18,9 +19,11 @@
   "event_type",
   "column_break_ref",
   "deduplication_key",
+  "tab_payload",
   "section_break_payload",
   "payload",
   "headers",
+  "tab_delivery",
   "section_break_delivery",
   "attempt_count",
   "next_retry_at",
@@ -29,6 +32,21 @@
   "last_error"
  ],
  "fields": [
+  {
+   "fieldname": "tab_message",
+   "fieldtype": "Tab Break",
+   "label": "Message"
+  },
+  {
+   "fieldname": "tab_payload",
+   "fieldtype": "Tab Break",
+   "label": "Payload"
+  },
+  {
+   "fieldname": "tab_delivery",
+   "fieldtype": "Tab Break",
+   "label": "Delivery"
+  },
   {
    "default": "Pending",
    "fieldname": "status",

@@ -5,6 +5,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "tab_template",
   "template_name",
   "applies_to_doctype",
   "message_type",
@@ -14,12 +15,18 @@
   "description",
   "section_break_template",
   "jinja_template",
+  "tab_validation",
   "json_schema",
   "section_break_example",
   "example_context",
   "example_output"
  ],
  "fields": [
+  {
+   "fieldname": "tab_template",
+   "fieldtype": "Tab Break",
+   "label": "Template"
+  },
   {
    "fieldname": "template_name",
    "fieldtype": "Data",
@@ -74,6 +81,11 @@
    "label": "Jinja Template",
    "options": "Jinja",
    "reqd": 1
+  },
+  {
+   "fieldname": "tab_validation",
+   "fieldtype": "Tab Break",
+   "label": "Validation & Preview"
   },
   {
    "description": "Optional JSON Schema used to validate the rendered payload.",

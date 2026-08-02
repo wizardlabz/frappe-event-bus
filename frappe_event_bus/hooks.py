@@ -252,8 +252,11 @@ app_license = "gpl-3.0"
 # Frappe Event Bus configuration
 # =============================================================================
 
-# Frontend: Message Template payload preview (Vue 3).
-app_include_js = "/assets/frappe_event_bus/js/payload_preview.bundle.js"
+# Frontend: Message Template payload preview and field picker (Vue 3).
+app_include_js = [
+	"/assets/frappe_event_bus/js/payload_preview.bundle.js",
+	"/assets/frappe_event_bus/js/template_builder.bundle.js",
+]
 
 # Generic document-event hook -> rule engine.
 doc_events = {

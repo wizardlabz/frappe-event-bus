@@ -6,12 +6,13 @@
  * `preview_payload` API and renders the JSON output with a validation badge.
  */
 
-import { createApp, defineComponent, reactive } from "vue";
+import { createApp, defineComponent, onMounted, reactive, ref } from "vue";
 
 const PayloadPreview = defineComponent({
 	name: "PayloadPreview",
 	props: {
 		messageTemplate: { type: String, required: true },
+		appliesTo: { type: String, default: "" },
 	},
 	setup(props) {
 		const state = reactive({
@@ -19,8 +20,29 @@ const PayloadPreview = defineComponent({
 			valid: null,
 			output: "",
 			error: "",
-			referenceDoctype: "",
+			referenceDoctype: props.appliesTo || "",
 			referenceName: "",
+		});
+
+		// When the template is bound to a doctype we know what to preview
+		// against, so offer a real Link picker instead of free text.
+		const linkMount = ref(null);
+
+		onMounted(() => {
+			if (!props.appliesTo || !linkMount.value) return;
+			const control = frappe.ui.form.make_control({
+				parent: linkMount.value,
+				df: {
+					fieldtype: "Link",
+					options: props.appliesTo,
+					label: __("Preview Against"),
+					fieldname: "reference_name",
+					change: () => {
+						state.referenceName = control.get_value();
+					},
+				},
+				render_input: true,
+			});
 		});
 
 		async function runPreview() {
@@ -51,19 +73,24 @@ const PayloadPreview = defineComponent({
 			}
 		}
 
-		return { state, runPreview, __ };
+		return { state, runPreview, linkMount, __ };
 	},
 	template: `
 		<div class="eb-payload-preview">
 			<div class="row">
-				<div class="col-sm-6 mb-2">
-					<input class="form-control" v-model="state.referenceDoctype"
-						:placeholder="__('Reference DocType (optional)')" />
+				<div v-if="appliesTo" class="col-sm-6 mb-2">
+					<div ref="linkMount"></div>
 				</div>
-				<div class="col-sm-6 mb-2">
-					<input class="form-control" v-model="state.referenceName"
-						:placeholder="__('Reference Name (optional)')" />
-				</div>
+				<template v-else>
+					<div class="col-sm-6 mb-2">
+						<input class="form-control" v-model="state.referenceDoctype"
+							:placeholder="__('Reference DocType (optional)')" />
+					</div>
+					<div class="col-sm-6 mb-2">
+						<input class="form-control" v-model="state.referenceName"
+							:placeholder="__('Reference Name (optional)')" />
+					</div>
+				</template>
 			</div>
 			<button class="btn btn-primary btn-sm mb-3" :disabled="state.loading" @click="runPreview">
 				{{ state.loading ? __('Rendering...') : __('Render Preview') }}
@@ -89,7 +116,10 @@ function openPreviewDialog(frm) {
 	dialog.show();
 
 	const mountPoint = dialog.fields_dict.preview_area.$wrapper.get(0);
-	const app = createApp(PayloadPreview, { messageTemplate: frm.doc.template_name });
+	const app = createApp(PayloadPreview, {
+		messageTemplate: frm.doc.template_name,
+		appliesTo: frm.doc.applies_to_doctype || "",
+	});
 	app.mount(mountPoint);
 	dialog.onhide = () => app.unmount();
 }
