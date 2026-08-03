@@ -107,29 +107,56 @@ const PayloadPreview = defineComponent({
 	`,
 });
 
-function openPreviewDialog(frm) {
-	if (!frm.doc.template_name) {
-		frappe.msgprint(__("Save the template first."));
+/** Tear down any previously mounted preview so refreshes don't stack apps. */
+function unmountPreview(frm) {
+	if (frm.__ebPreviewApp) {
+		frm.__ebPreviewApp.unmount();
+		frm.__ebPreviewApp = null;
+	}
+}
+
+/**
+ * Mount the preview inline in the Validation & Preview tab.
+ *
+ * The preview reads the *saved* template server-side, so an unsaved document
+ * has nothing to render against — say so rather than mounting a widget whose
+ * button would always fail.
+ */
+function mountPreview(frm) {
+	const field = frm.get_field("payload_preview_html");
+	if (!field) return;
+
+	unmountPreview(frm);
+	const wrapper = field.$wrapper;
+	wrapper.empty();
+
+	if (frm.is_new() || !frm.doc.template_name) {
+		wrapper.html(
+			`<div class="text-muted">${__("Save the template to preview its payload.")}</div>`
+		);
 		return;
 	}
-	const dialog = new frappe.ui.Dialog({
-		title: __("Payload Preview"),
-		size: "large",
-		fields: [{ fieldtype: "HTML", fieldname: "preview_area" }],
-	});
-	dialog.show();
 
-	const mountPoint = dialog.fields_dict.preview_area.$wrapper.get(0);
+	const mountPoint = $('<div class="eb-preview-mount"></div>').appendTo(wrapper).get(0);
 	const app = createApp(PayloadPreview, {
 		messageTemplate: frm.doc.template_name,
 		appliesTo: frm.doc.applies_to_doctype || "",
 	});
 	app.mount(mountPoint);
-	dialog.onhide = () => app.unmount();
+	frm.__ebPreviewApp = app;
 }
 
 frappe.ui.form.on("Event Bus Message Template", {
 	refresh(frm) {
-		frm.add_custom_button(__("Preview Payload"), () => openPreviewDialog(frm));
+		mountPreview(frm);
+	},
+
+	applies_to_doctype(frm) {
+		// The document picker is bound to this doctype, so rebuild it.
+		mountPreview(frm);
+	},
+
+	onload_post_render(frm) {
+		frm.$wrapper.on("remove", () => unmountPreview(frm));
 	},
 });

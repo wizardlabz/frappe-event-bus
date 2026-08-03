@@ -14,6 +14,9 @@
   "section_break_template",
   "jinja_template",
   "tab_validation",
+  "section_break_live",
+  "payload_preview_html",
+  "section_break_schema",
   "json_schema",
   "section_break_example",
   "example_context",
@@ -85,10 +88,10 @@
   {
    "fieldname": "section_break_example",
    "fieldtype": "Section Break",
-   "label": "Preview"
+   "label": "Stored Example"
   },
   {
-   "description": "Sample context (JSON) used to render the preview.",
+   "description": "Sample context (JSON) saved with the template. Used by render_example on save; the live preview above uses a real document instead.",
    "fieldname": "example_context",
    "fieldtype": "Code",
    "label": "Example Context",
@@ -100,6 +103,21 @@
    "label": "Example Output",
    "options": "JSON",
    "read_only": 1
+  },
+  {
+   "fieldname": "section_break_live",
+   "fieldtype": "Section Break",
+   "label": "Payload Preview"
+  },
+  {
+   "fieldname": "payload_preview_html",
+   "fieldtype": "HTML",
+   "label": "Payload Preview"
+  },
+  {
+   "fieldname": "section_break_schema",
+   "fieldtype": "Section Break",
+   "label": "JSON Schema"
   }
  ],
  "index_web_pages_for_search": 1,
