@@ -120,3 +120,58 @@ class TestRenderReport(FrappeTestCase):
 			render_payload('{"a": "{{ doc.x }}"', {"doc": frappe._dict(x=1)})
 		with self.assertRaises(SchemaValidationError):
 			render_payload('{"a": 1}', {}, '{"type": "object", "required": ["missing"]}')
+
+
+class TestSchemaDocumentValidation(FrappeTestCase):
+	"""A broken schema is the schema author's problem, not the payload's.
+
+	Reporting it as "payload fails schema" sends you to debug the wrong file.
+	Worse, a schema with a typo'd type silently validates nothing, so a
+	template can look green while its schema is inert.
+	"""
+
+	def test_malformed_schema_json_is_reported_as_a_schema_problem(self):
+		r = render_report('{"a": 1}', {}, "{not json")
+		self.assertFalse(r["ok"])
+		self.assertTrue(r["json_valid"])       # the payload was fine
+		self.assertFalse(r["schema_parsed"])
+		self.assertIsNone(r["schema_valid"])   # never got to check it
+		self.assertEqual(r["stage"], "schema_invalid")
+
+	def test_unknown_type_is_rejected_rather_than_silently_ignored(self):
+		r = render_report('{"a": 1}', {}, '{"type": "banana"}')
+		self.assertFalse(r["schema_parsed"])
+		self.assertEqual(r["stage"], "schema_invalid")
+		self.assertIn("banana", r["error"])
+
+	def test_schema_must_be_an_object(self):
+		r = render_report('{"a": 1}', {}, '["not", "an", "object"]')
+		self.assertFalse(r["schema_parsed"])
+		self.assertEqual(r["stage"], "schema_invalid")
+
+	def test_required_must_be_a_list_of_names(self):
+		r = render_report('{"a": 1}', {}, '{"type": "object", "required": "a"}')
+		self.assertFalse(r["schema_parsed"])
+		self.assertEqual(r["stage"], "schema_invalid")
+
+	def test_nested_property_schema_is_checked_too(self):
+		schema = '{"type": "object", "properties": {"a": {"type": "wrong"}}}'
+		r = render_report('{"a": 1}', {}, schema)
+		self.assertFalse(r["schema_parsed"])
+		self.assertIn("a", r["error"])
+
+	def test_a_good_schema_parses_and_then_validates(self):
+		r = render_report('{"a": 1}', {}, '{"type": "object", "required": ["a"]}')
+		self.assertTrue(r["schema_parsed"])
+		self.assertTrue(r["schema_valid"])
+		self.assertTrue(r["ok"])
+
+	def test_payload_violation_is_still_distinct_from_a_broken_schema(self):
+		r = render_report('{"a": 1}', {}, '{"type": "object", "required": ["b"]}')
+		self.assertTrue(r["schema_parsed"])    # schema itself is fine
+		self.assertFalse(r["schema_valid"])
+		self.assertEqual(r["stage"], "schema")
+
+	def test_publish_path_still_refuses_a_broken_schema(self):
+		with self.assertRaises(SchemaValidationError):
+			render_payload('{"a": 1}', {}, "{not json")

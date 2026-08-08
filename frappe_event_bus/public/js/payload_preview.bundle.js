@@ -25,6 +25,7 @@ const PayloadPreview = defineComponent({
 			rendered: null,
 			jsonValid: null,
 			schemaPresent: false,
+			schemaParsed: null,
 			schemaValid: null,
 			stage: null,
 			output: "",
@@ -89,6 +90,7 @@ const PayloadPreview = defineComponent({
 				state.rendered = d.rendered;
 				state.jsonValid = d.json_valid;
 				state.schemaPresent = d.schema_present;
+				state.schemaParsed = d.schema_parsed;
 				state.schemaValid = d.schema_valid;
 				state.stage = d.stage;
 				state.output = d.output || "";
@@ -97,6 +99,7 @@ const PayloadPreview = defineComponent({
 				state.rendered = false;
 				state.jsonValid = false;
 				state.schemaValid = null;
+				state.schemaParsed = null;
 				state.error = (e && e.message) || String(e);
 			} finally {
 				state.loading = false;
@@ -106,11 +109,21 @@ const PayloadPreview = defineComponent({
 		const stageLabel = computed(() => {
 			if (state.stage === "render") return __("Render error:");
 			if (state.stage === "json") return __("JSON error:");
+			if (state.stage === "schema_invalid") return __("Invalid schema:");
 			if (state.stage === "schema") return __("Schema error:");
 			return __("Error:");
 		});
 
-		return { state, runPreview, linkMount, stageLabel, __ };
+		// Four states, because "the schema is broken" is a different problem
+		// from "the payload does not match it" and points at a different file.
+		const schemaPill = computed(() => {
+			if (!state.schemaPresent) return { color: "gray", text: __("No schema set") };
+			if (state.schemaParsed === false) return { color: "orange", text: __("Invalid schema") };
+			if (state.schemaValid) return { color: "green", text: __("Matches schema") };
+			return { color: "red", text: __("Fails schema") };
+		});
+
+		return { state, runPreview, linkMount, stageLabel, schemaPill, __ };
 	},
 	template: `
 		<div class="eb-payload-preview">
@@ -138,12 +151,7 @@ const PayloadPreview = defineComponent({
 				<span class="indicator-pill mr-2" :class="state.jsonValid ? 'green' : 'red'">
 					{{ state.jsonValid ? __("Valid JSON") : __("Invalid JSON") }}
 				</span>
-				<span class="indicator-pill"
-					:class="!state.schemaPresent ? 'gray' : (state.schemaValid ? 'green' : 'red')">
-					{{ !state.schemaPresent
-						? __("No schema set")
-						: (state.schemaValid ? __("Matches schema") : __("Fails schema")) }}
-				</span>
+				<span class="indicator-pill" :class="schemaPill.color">{{ schemaPill.text }}</span>
 			</div>
 
 			<div v-if="state.error" class="alert alert-warning py-2">

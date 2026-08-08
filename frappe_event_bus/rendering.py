@@ -26,6 +26,14 @@ class SchemaValidationError(frappe.ValidationError):
 	"""Raised when a rendered payload fails JSON Schema validation."""
 
 
+class SchemaDocumentError(SchemaValidationError):
+	"""Raised when the schema itself is malformed, rather than the payload.
+
+	Subclasses :class:`SchemaValidationError` so existing callers that catch
+	schema problems keep working, while the preview can tell the two apart.
+	"""
+
+
 _TYPE_MAP: dict[str, tuple[type, ...]] = {
 	"object": (dict,),
 	"array": (list,),
@@ -35,6 +43,51 @@ _TYPE_MAP: dict[str, tuple[type, ...]] = {
 	"boolean": (bool,),
 	"null": (type(None),),
 }
+
+
+def validate_schema_document(schema: Any, path: str = "$") -> None:
+	"""Check that ``schema`` is a schema this validator can actually enforce.
+
+	Only the subset documented for :func:`validate_against_schema` is accepted.
+	An unrecognised ``type`` is rejected rather than ignored: silently skipping
+	it would leave a schema that validates nothing while appearing to pass.
+
+	Raises:
+		SchemaDocumentError: On the first structural problem found.
+	"""
+	if not isinstance(schema, dict):
+		raise SchemaDocumentError(
+			frappe._("Schema at {0} must be an object, got {1}").format(
+				path, type(schema).__name__
+			)
+		)
+
+	declared_type = schema.get("type")
+	if declared_type is not None and (
+		not isinstance(declared_type, str) or declared_type not in _TYPE_MAP
+	):
+		raise SchemaDocumentError(
+			frappe._("Unknown type '{0}' at {1}. Supported types: {2}").format(
+				declared_type, path, ", ".join(sorted(_TYPE_MAP))
+			)
+		)
+
+	required = schema.get("required")
+	if required is not None and (
+		not isinstance(required, list) or not all(isinstance(key, str) for key in required)
+	):
+		raise SchemaDocumentError(
+			frappe._("'required' at {0} must be a list of property names").format(path)
+		)
+
+	properties = schema.get("properties")
+	if properties is not None:
+		if not isinstance(properties, dict):
+			raise SchemaDocumentError(
+				frappe._("'properties' at {0} must be an object").format(path)
+			)
+		for key, subschema in properties.items():
+			validate_schema_document(subschema, f"{path}.{key}")
 
 
 def render_report(
@@ -57,14 +110,18 @@ def render_report(
 
 	Returns:
 		Dict with ``ok``, ``rendered``, ``json_valid``, ``schema_present``,
-		``schema_valid`` (``None`` when no schema is set), ``output``,
-		``parsed``, the failing ``stage`` and a human-readable ``error``.
+		``schema_parsed`` (whether the schema itself is usable), ``schema_valid``
+		(``None`` when there is no schema, or when the schema was too broken to
+		check against), ``output``, ``parsed``, the failing ``stage`` — one of
+		``render``, ``json``, ``schema_invalid``, ``schema`` — and a
+		human-readable ``error``.
 	"""
 	report: dict[str, Any] = {
 		"ok": False,
 		"rendered": False,
 		"json_valid": False,
 		"schema_present": bool(json_schema),
+		"schema_parsed": None,
 		"schema_valid": None,
 		"output": "",
 		"parsed": None,
@@ -95,10 +152,19 @@ def render_report(
 	try:
 		schema = json_schema if isinstance(json_schema, dict) else json.loads(json_schema)
 	except json.JSONDecodeError as exc:
-		report["stage"] = "schema"
+		report["stage"] = "schema_invalid"
+		report["schema_parsed"] = False
 		report["error"] = frappe._("JSON Schema is not valid JSON: {0}").format(exc)
-		report["schema_valid"] = False
 		return report
+
+	try:
+		validate_schema_document(schema)
+	except SchemaDocumentError as exc:
+		report["stage"] = "schema_invalid"
+		report["schema_parsed"] = False
+		report["error"] = str(exc)
+		return report
+	report["schema_parsed"] = True
 
 	try:
 		validate_against_schema(report["parsed"], schema)
@@ -139,6 +205,8 @@ def render_payload(
 
 	if report["stage"] in ("render", "json"):
 		raise TemplateRenderError(report["error"])
+	if report["stage"] == "schema_invalid":
+		raise SchemaDocumentError(report["error"])
 	if report["stage"] == "schema":
 		raise SchemaValidationError(report["error"])
 
