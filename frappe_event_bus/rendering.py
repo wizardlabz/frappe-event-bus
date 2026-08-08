@@ -37,12 +37,91 @@ _TYPE_MAP: dict[str, tuple[type, ...]] = {
 }
 
 
+def render_report(
+	template: str,
+	context: dict[str, Any],
+	json_schema: str | dict[str, Any] | None = None,
+) -> dict[str, Any]:
+	"""Render and validate, reporting each stage instead of raising.
+
+	Rendering has three distinct failure modes and the UI needs to tell them
+	apart: a template that will not render, one that renders to text that is
+	not JSON, and one that produces perfectly good JSON violating its schema.
+	Collapsing them into a single error loses the information that tells you
+	what to fix.
+
+	Args:
+		template: Jinja template producing a JSON document.
+		context: Render context (typically ``{"doc": ..., "context": ...}``).
+		json_schema: Optional JSON Schema, as a JSON string or a dict.
+
+	Returns:
+		Dict with ``ok``, ``rendered``, ``json_valid``, ``schema_present``,
+		``schema_valid`` (``None`` when no schema is set), ``output``,
+		``parsed``, the failing ``stage`` and a human-readable ``error``.
+	"""
+	report: dict[str, Any] = {
+		"ok": False,
+		"rendered": False,
+		"json_valid": False,
+		"schema_present": bool(json_schema),
+		"schema_valid": None,
+		"output": "",
+		"parsed": None,
+		"stage": None,
+		"error": None,
+	}
+
+	try:
+		report["output"] = frappe.render_template(template, context)
+	except Exception as exc:
+		report["stage"] = "render"
+		report["error"] = frappe._("Failed to render template: {0}").format(exc)
+		return report
+	report["rendered"] = True
+
+	try:
+		report["parsed"] = json.loads(report["output"])
+	except json.JSONDecodeError as exc:
+		report["stage"] = "json"
+		report["error"] = frappe._("Rendered payload is not valid JSON: {0}").format(exc)
+		return report
+	report["json_valid"] = True
+
+	if not json_schema:
+		report["ok"] = True
+		return report
+
+	try:
+		schema = json_schema if isinstance(json_schema, dict) else json.loads(json_schema)
+	except json.JSONDecodeError as exc:
+		report["stage"] = "schema"
+		report["error"] = frappe._("JSON Schema is not valid JSON: {0}").format(exc)
+		report["schema_valid"] = False
+		return report
+
+	try:
+		validate_against_schema(report["parsed"], schema)
+	except SchemaValidationError as exc:
+		report["stage"] = "schema"
+		report["schema_valid"] = False
+		report["error"] = str(exc)
+		return report
+
+	report["schema_valid"] = True
+	report["ok"] = True
+	return report
+
+
 def render_payload(
 	template: str,
 	context: dict[str, Any],
 	json_schema: str | None = None,
 ) -> str:
 	"""Render ``template`` with ``context`` into a validated JSON string.
+
+	The raising counterpart of :func:`render_report`, used on the publish path
+	where a bad payload must stop the message rather than be reported.
 
 	Args:
 		template: Jinja template producing a JSON document.
@@ -56,21 +135,14 @@ def render_payload(
 		TemplateRenderError: If rendering fails or the result is not valid JSON.
 		SchemaValidationError: If the payload violates ``json_schema``.
 	"""
-	try:
-		rendered = frappe.render_template(template, context)
-	except Exception as exc:
-		raise TemplateRenderError(frappe._("Failed to render template: {0}").format(exc)) from exc
+	report = render_report(template, context, json_schema)
 
-	try:
-		parsed = json.loads(rendered)
-	except json.JSONDecodeError as exc:
-		raise TemplateRenderError(frappe._("Rendered payload is not valid JSON: {0}").format(exc)) from exc
+	if report["stage"] in ("render", "json"):
+		raise TemplateRenderError(report["error"])
+	if report["stage"] == "schema":
+		raise SchemaValidationError(report["error"])
 
-	if json_schema:
-		schema = json_schema if isinstance(json_schema, dict) else json.loads(json_schema)
-		validate_against_schema(parsed, schema)
-
-	return rendered
+	return report["output"]
 
 
 def validate_against_schema(value: Any, schema: dict[str, Any], path: str = "$") -> None:

@@ -14,13 +14,14 @@
   "section_break_template",
   "jinja_template",
   "tab_validation",
-  "section_break_live",
-  "payload_preview_html",
   "section_break_schema",
   "json_schema",
   "section_break_example",
   "example_context",
-  "example_output"
+  "example_output",
+  "tab_preview",
+  "section_break_live",
+  "payload_preview_html"
  ],
  "fields": [
   {
@@ -76,7 +77,7 @@
   {
    "fieldname": "tab_validation",
    "fieldtype": "Tab Break",
-   "label": "Validation & Preview"
+   "label": "JSON Schema"
   },
   {
    "description": "Optional JSON Schema used to validate the rendered payload.",
@@ -118,6 +119,11 @@
    "fieldname": "section_break_schema",
    "fieldtype": "Section Break",
    "label": "JSON Schema"
+  },
+  {
+   "fieldname": "tab_preview",
+   "fieldtype": "Tab Break",
+   "label": "Preview"
   }
  ],
  "index_web_pages_for_search": 1,

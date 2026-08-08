@@ -10,7 +10,7 @@
 // via the string `template:` option, which the runtime-only build silently
 // ignores (it renders an empty comment node, with no console error under a
 // production build). See docs/development/template-authoring-design.md.
-import { createApp, defineComponent, onMounted, reactive, ref } from "vue/dist/vue.esm-bundler.js";
+import { computed, createApp, defineComponent, onMounted, reactive, ref } from "vue/dist/vue.esm-bundler.js";
 
 const PayloadPreview = defineComponent({
 	name: "PayloadPreview",
@@ -21,7 +21,12 @@ const PayloadPreview = defineComponent({
 	setup(props) {
 		const state = reactive({
 			loading: false,
-			valid: null,
+			// Staged validation, so the UI can say which check failed.
+			rendered: null,
+			jsonValid: null,
+			schemaPresent: false,
+			schemaValid: null,
+			stage: null,
 			output: "",
 			error: "",
 			referenceDoctype: props.appliesTo || "",
@@ -32,7 +37,7 @@ const PayloadPreview = defineComponent({
 		// against, so offer a real Link picker instead of free text.
 		const linkMount = ref(null);
 
-		onMounted(() => {
+		onMounted(async () => {
 			if (!props.appliesTo || !linkMount.value) return;
 			const control = frappe.ui.form.make_control({
 				parent: linkMount.value,
@@ -41,12 +46,31 @@ const PayloadPreview = defineComponent({
 					options: props.appliesTo,
 					label: __("Preview Against"),
 					fieldname: "reference_name",
+					// Rendering on selection removes the extra click; the
+					// preview is something you glance at, not a job you launch.
 					change: () => {
-						state.referenceName = control.get_value();
+						const picked = control.get_value();
+						if (picked === state.referenceName) return;
+						state.referenceName = picked;
+						if (picked) runPreview();
 					},
 				},
 				render_input: true,
 			});
+
+			// Seed with the most recent document so the tab is useful on open.
+			const recent = await frappe.call({
+				method: "frappe.client.get_list",
+				args: {
+					doctype: props.appliesTo,
+					limit_page_length: 1,
+					order_by: "modified desc",
+				},
+			});
+			const seed = recent.message && recent.message[0] && recent.message[0].name;
+			if (seed && !state.referenceName) {
+				control.set_value(seed);
+			}
 		});
 
 		async function runPreview() {
@@ -61,23 +85,32 @@ const PayloadPreview = defineComponent({
 						reference_name: state.referenceName || null,
 					},
 				});
-				const data = r.message || {};
-				state.valid = data.valid;
-				if (data.valid) {
-					state.output = data.output;
-				} else {
-					state.output = "";
-					state.error = data.error || __("Unknown error");
-				}
+				const d = r.message || {};
+				state.rendered = d.rendered;
+				state.jsonValid = d.json_valid;
+				state.schemaPresent = d.schema_present;
+				state.schemaValid = d.schema_valid;
+				state.stage = d.stage;
+				state.output = d.output || "";
+				state.error = d.error || "";
 			} catch (e) {
-				state.valid = false;
+				state.rendered = false;
+				state.jsonValid = false;
+				state.schemaValid = null;
 				state.error = (e && e.message) || String(e);
 			} finally {
 				state.loading = false;
 			}
 		}
 
-		return { state, runPreview, linkMount, __ };
+		const stageLabel = computed(() => {
+			if (state.stage === "render") return __("Render error:");
+			if (state.stage === "json") return __("JSON error:");
+			if (state.stage === "schema") return __("Schema error:");
+			return __("Error:");
+		});
+
+		return { state, runPreview, linkMount, stageLabel, __ };
 	},
 	template: `
 		<div class="eb-payload-preview">
@@ -96,13 +129,31 @@ const PayloadPreview = defineComponent({
 					</div>
 				</template>
 			</div>
-			<button class="btn btn-primary btn-sm mb-3" :disabled="state.loading" @click="runPreview">
-				{{ state.loading ? __('Rendering...') : __('Render Preview') }}
-			</button>
-			<div v-if="state.valid === true" class="indicator-pill green mb-2">{{ __('Valid JSON') }}</div>
-			<div v-if="state.valid === false" class="indicator-pill red mb-2">{{ __('Invalid') }}</div>
+			<div v-if="state.loading" class="text-muted mb-2">{{ __("Rendering...") }}</div>
+
+			<div v-if="!state.loading && state.rendered !== null" class="mb-3">
+				<span class="indicator-pill mr-2" :class="state.rendered ? 'green' : 'red'">
+					{{ state.rendered ? __("Template renders") : __("Template failed") }}
+				</span>
+				<span class="indicator-pill mr-2" :class="state.jsonValid ? 'green' : 'red'">
+					{{ state.jsonValid ? __("Valid JSON") : __("Invalid JSON") }}
+				</span>
+				<span class="indicator-pill"
+					:class="!state.schemaPresent ? 'gray' : (state.schemaValid ? 'green' : 'red')">
+					{{ !state.schemaPresent
+						? __("No schema set")
+						: (state.schemaValid ? __("Matches schema") : __("Fails schema")) }}
+				</span>
+			</div>
+
+			<div v-if="state.error" class="alert alert-warning py-2">
+				<b>{{ stageLabel }}</b> {{ state.error }}
+			</div>
+
 			<pre v-if="state.output" class="eb-output">{{ state.output }}</pre>
-			<div v-if="state.error" class="text-danger">{{ state.error }}</div>
+			<div v-if="!state.loading && state.rendered === null" class="text-muted">
+				{{ __("Select a document to preview its payload.") }}
+			</div>
 		</div>
 	`,
 });

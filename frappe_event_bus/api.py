@@ -53,8 +53,13 @@ def preview_payload(
 	stored example context.
 
 	Returns:
-		Dict with ``valid``, ``output`` (string) and optional ``error``.
+		The staged report from :func:`render_report` — ``ok``, ``rendered``,
+		``json_valid``, ``schema_present``, ``schema_valid``, ``output``,
+		``stage`` and ``error`` — so the UI can show which check failed. Also
+		carries ``valid`` for backwards compatibility.
 	"""
+	from frappe_event_bus.rendering import render_report
+
 	template = frappe.get_doc("Event Bus Message Template", message_template)
 
 	if reference_doctype and reference_name:
@@ -63,11 +68,9 @@ def preview_payload(
 	else:
 		context = frappe.parse_json(template.example_context) if template.example_context else {}
 
-	try:
-		output = template.render(context)
-		return {"valid": True, "output": output, "parsed": json.loads(output)}
-	except frappe.ValidationError as exc:
-		return {"valid": False, "error": str(exc)}
+	report = render_report(template.jinja_template, context, template.json_schema)
+	report["valid"] = report["ok"]
+	return report
 
 
 @frappe.whitelist()
