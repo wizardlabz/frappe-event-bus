@@ -21,7 +21,9 @@
   "example_output",
   "tab_preview",
   "section_break_live",
-  "payload_preview_html"
+  "payload_preview_html",
+  "tab_connections",
+  "connections_html"
  ],
  "fields": [
   {
@@ -124,10 +126,31 @@
    "fieldname": "tab_preview",
    "fieldtype": "Tab Break",
    "label": "Preview"
+  },
+  {
+   "fieldname": "tab_connections",
+   "fieldtype": "Tab Break",
+   "label": "Connections"
+  },
+  {
+   "fieldname": "connections_html",
+   "fieldtype": "HTML",
+   "label": "Connections"
   }
  ],
  "index_web_pages_for_search": 1,
- "links": [],
+ "links": [
+  {
+   "group": "Usage",
+   "link_doctype": "Event Bus Rule",
+   "link_fieldname": "message_template"
+  },
+  {
+   "group": "Delivery",
+   "link_doctype": "Event Bus Outbox Message",
+   "link_fieldname": "message_template"
+  }
+ ],
  "modified": "2026-06-29 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Frappe Event Bus",

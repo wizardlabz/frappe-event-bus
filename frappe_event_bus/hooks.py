@@ -258,6 +258,7 @@ app_license = "gpl-3.0"
 app_include_js = [
 	"payload_preview.bundle.js",
 	"template_builder.bundle.js",
+	"connections_tab.bundle.js",
 ]
 
 # Generic document-event hook -> rule engine.

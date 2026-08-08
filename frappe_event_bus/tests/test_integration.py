@@ -21,7 +21,6 @@ def _ensure_template() -> str:
 			{
 				"doctype": "Event Bus Message Template",
 				"template_name": TEMPLATE_NAME,
-				
 				"enabled": 1,
 				"jinja_template": '{"todo": "{{ doc.name }}", "priority": "{{ doc.priority }}"}',
 			}
@@ -307,3 +306,65 @@ class TestReplay(FrappeTestCase):
 		).insert(ignore_permissions=True)
 		with self.assertRaises(frappe.ValidationError):
 			replay_outbox_message(doc.name)
+
+
+class TestConcurrentWorkerContention(FrappeTestCase):
+	"""Two workers racing for the same row must not crash the batch.
+
+	InnoDB rolls back the *whole* transaction when it picks a deadlock victim,
+	so the savepoint taken per message is already gone by the time the handler
+	runs — rolling back to it raises a second error that escapes the batch.
+	Losing a claim race is normal operation, not a failure.
+	"""
+
+	def setUp(self):
+		register_fake_provider()
+		reset_flags()
+		_enable_bus()
+		_make_rule()
+
+	def test_deadlock_on_claim_is_treated_as_a_lost_race(self):
+		todo = frappe.get_doc({"doctype": "ToDo", "description": "deadlock"}).insert()
+		names = frappe.get_all(
+			"Event Bus Outbox Message", filters={"reference_document": todo.name}, pluck="name"
+		)
+		self.assertTrue(names)
+
+		original = ow._claim_message
+
+		def deadlocking_claim(name):
+			raise frappe.QueryDeadlockError("Deadlock found when trying to get lock")
+
+		ow._claim_message = deadlocking_claim
+		try:
+			# Must not raise: the batch survives a lost race.
+			counts = ow.process_pending()
+		finally:
+			ow._claim_message = original
+
+		self.assertGreaterEqual(counts["processed"], 1)
+		self.assertEqual(counts["failed"], 0, "a lost claim race is not a delivery failure")
+
+		# The message is still claimable by whoever wins next time.
+		status = frappe.db.get_value("Event Bus Outbox Message", names[0], "status")
+		self.assertIn(status, ("Pending", "Publishing", "Published"))
+
+	def test_claim_returns_false_when_the_row_is_locked(self):
+		"""The claim itself swallows the deadlock rather than propagating it."""
+		todo = frappe.get_doc({"doctype": "ToDo", "description": "locked"}).insert()
+		name = frappe.get_all(
+			"Event Bus Outbox Message", filters={"reference_document": todo.name}, pluck="name"
+		)[0]
+
+		original_sql = frappe.db.sql
+
+		def deadlocking_sql(query, *args, **kwargs):
+			if "SET status = 'Publishing'" in str(query):
+				raise frappe.QueryDeadlockError("Deadlock found when trying to get lock")
+			return original_sql(query, *args, **kwargs)
+
+		frappe.db.sql = deadlocking_sql
+		try:
+			self.assertFalse(ow._claim_message(name))
+		finally:
+			frappe.db.sql = original_sql

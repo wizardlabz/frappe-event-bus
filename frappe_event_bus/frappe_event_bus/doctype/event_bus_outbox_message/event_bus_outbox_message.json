@@ -30,7 +30,9 @@
   "next_retry_at",
   "published_at",
   "column_break_delivery",
-  "last_error"
+  "last_error",
+  "tab_connections",
+  "connections_html"
  ],
  "fields": [
   {
@@ -181,10 +183,26 @@
    "label": "Priority",
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "tab_connections",
+   "fieldtype": "Tab Break",
+   "label": "Connections"
+  },
+  {
+   "fieldname": "connections_html",
+   "fieldtype": "HTML",
+   "label": "Connections"
   }
  ],
  "index_web_pages_for_search": 1,
- "links": [],
+ "links": [
+  {
+   "group": "Delivery",
+   "link_doctype": "Event Bus Delivery Attempt",
+   "link_fieldname": "outbox_message"
+  }
+ ],
  "modified": "2026-06-29 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Frappe Event Bus",

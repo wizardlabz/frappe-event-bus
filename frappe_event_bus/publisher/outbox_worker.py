@@ -35,15 +35,26 @@ def process_pending(batch_size: int | None = None) -> dict[str, int]:
 	limit = batch_size or settings.worker_batch_size or 50
 
 	names = _select_due_messages(limit)
-	counts = {"processed": 0, "published": 0, "failed": 0, "retried": 0}
+	counts = {"processed": 0, "published": 0, "failed": 0, "retried": 0, "skipped": 0}
 	for name in names:
 		# Isolate each message: an unexpected failure (e.g. a DB error) rolls back
 		# only this message via a savepoint, so the rest of the batch still commits.
 		frappe.db.savepoint("eb_outbox_msg")
 		try:
 			outcome = process_message(name)
+		except (frappe.QueryDeadlockError, frappe.QueryTimeoutError):
+			# InnoDB has already rolled the whole transaction back, taking the
+			# savepoint with it — rolling back to it here would raise a second
+			# error and abandon the rest of the batch. The row keeps its
+			# pre-claim status, so the next pass picks it up.
+			outcome = "skipped"
 		except Exception:
-			frappe.db.rollback(save_point="eb_outbox_msg")
+			try:
+				frappe.db.rollback(save_point="eb_outbox_msg")
+			except Exception:
+				# The savepoint is gone (the transaction was rolled back under
+				# us). Nothing to undo; keep processing the batch.
+				pass
 			frappe.log_error(
 				title="Event Bus: process_message failed",
 				message=frappe.get_traceback(),
@@ -91,14 +102,21 @@ def _claim_message(name: str) -> bool:
 	Returns:
 		True if this worker claimed the row, False if another worker already had it.
 	"""
-	frappe.db.sql(
-		"""
-		UPDATE `tabEvent Bus Outbox Message`
-		SET status = 'Publishing'
-		WHERE name = %s AND status IN ('Pending', 'Retry Scheduled')
-		""",
-		name,
-	)
+	try:
+		frappe.db.sql(
+			"""
+			UPDATE `tabEvent Bus Outbox Message`
+			SET status = 'Publishing'
+			WHERE name = %s AND status IN ('Pending', 'Retry Scheduled')
+			""",
+			name,
+		)
+	except (frappe.QueryDeadlockError, frappe.QueryTimeoutError):
+		# Another worker holds the row lock and InnoDB picked us as the victim.
+		# Losing the race is the same outcome as losing it cleanly: skip the
+		# row and let the winner deliver it.
+		return False
+
 	return frappe.db._cursor.rowcount == 1
 
 
