@@ -62,6 +62,7 @@ def render_example_output(template_name: str) -> dict[str, Any]:
 
 	Returns a dict with ``valid``, ``output`` and optional ``error``.
 	"""
+	frappe.has_permission("Event Bus Message Template", "read", doc=template_name, throw=True)
 	doc: EventBusMessageTemplate = frappe.get_doc("Event Bus Message Template", template_name)
 	try:
 		output = doc.render_example()
