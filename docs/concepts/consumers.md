@@ -54,6 +54,10 @@ Deduplication is enforced by a **unique index on `deduplication_key`**, not by c
 
 Payload Hash is the default because it is the only strategy guaranteed to produce a key. RabbitMQ does not guarantee a message carries an id, a header, or any particular payload field, and every other strategy falls back to the payload hash whenever it cannot produce one — a null or empty key would silently disable deduplication for that message, and there is no safe way to fail open in a system where redelivery is expected.
 
+"Cannot produce one" includes a body that is valid JSON but not an object: `[1, 2, 3]` and `"hello"` are both legal to publish and neither has a named field to read. Nothing about a message is allowed to make it unpersistable — a message that cannot be written is never acknowledged, so the broker redelivers it every cycle forever and no operator action can clear it. The same rule covers a key that is simply too long: `deduplication_key`, `ordering_key` and `message_type` are 140-character columns, so a Custom Expression concatenating two fields can overflow one. An over-long deduplication key falls back to the payload hash, an over-long ordering key falls back to the deduplication key, and an over-long message type is dropped to empty rather than truncated into a plausible wrong answer.
+
+`Header Value`, `Payload Field` and `Custom Expression` all read `deduplication_key_expression`, so the consumer's `validate()` refuses to save any of them without one. Left blank they would not fail — they would look up the empty string, find nothing, and quietly deduplicate on the payload hash instead, which under the global scope described below discards genuinely distinct messages that share a body.
+
 ### Scope is global, not per consumer
 
 The unique index is on the Inbox as a whole, across every consumer. If two consumers are both subscribed to the same upstream event and would compute the same key — the default Payload Hash naturally does this when the body is identical — the second consumer's copy is written as `Ignored`, not processed, even though it belongs to a different consumer with a different purpose. Deduplication scope is a property of the key, not of the consumer.
@@ -81,7 +85,7 @@ Jinja key expressions (used by Custom Expression, and by the ordering key below)
 | Routing Key | Uses the message's routing key directly; `message_type_source` is ignored. |
 | Fixed | Uses `message_type_source` itself as a literal value for every message. |
 
-When the source field or header is missing, `detect_message_type` returns `None` rather than raising — a message the broker already delivered is still persisted, with an empty `message_type`, rather than rejected over a routing detail. Deciding what to do about an undetectable type is left for the processing phase.
+When the source field or header is missing — or the payload is not an object at all, or the detected value is too long for the column — `detect_message_type` returns `None` rather than raising. A message the broker already delivered is still persisted, with an empty `message_type`, rather than rejected over a routing detail. Deciding what to do about an undetectable type is left for the processing phase.
 
 ## Statuses
 
