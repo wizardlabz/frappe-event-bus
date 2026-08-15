@@ -187,11 +187,36 @@ class TestPollCycle(FrappeTestCase):
 		self.assertEqual(counts["received"], 0)
 		self.assertEqual([m["provider_message_id"] for m in take_rejected()], ["big"])
 
-	def test_a_message_committed_but_never_acked_is_ignored_on_redelivery(self):
-		"""The ordering rule: persistence survives a crash before the ack.
+	def test_the_commit_precedes_every_acknowledgement(self):
+		"""The ordering rule, asserted directly.
 
-		If the ack were sent before the commit, a failure at this point would
-		leave nothing stored and the message would be lost.
+		A message acknowledged before its row is committed would be lost
+		outright if the process died in between — the broker would consider it
+		delivered and never send it again.
+		"""
+		consumer = _make_consumer(enabled=1)
+		queue_messages([{"payload_raw": '{"n": 1}', "provider_message_id": "m1"}])
+
+		original_commit = frappe.db.commit
+
+		def recording_commit():
+			frappe.flags.setdefault("fake_consume_order", []).append("commit")
+			return original_commit()
+
+		frappe.db.commit = recording_commit
+		try:
+			cw.poll_consumer(consumer.name)
+		finally:
+			frappe.db.commit = original_commit
+
+		self.assertEqual(frappe.flags.fake_consume_order, ["commit", "ack"])
+
+	def test_a_failed_acknowledgement_leaves_the_message_stored_and_deduped_on_redelivery(self):
+		"""A failed ack does not prevent persistence, and redelivery is deduped.
+
+		This does not prove the commit happens before the ack (see
+		``test_the_commit_precedes_every_acknowledgement`` for that); it proves
+		that persistence survives regardless of what happens to the ack.
 		"""
 		consumer = _make_consumer(enabled=1)
 		body = '{"n": 7}'
