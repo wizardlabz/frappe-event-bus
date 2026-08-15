@@ -281,6 +281,79 @@ class TestPollCycle(FrappeTestCase):
 		self.assertEqual([r.status for r in after], ["Received", "Ignored"])
 		self.assertEqual(after[1].duplicate_of, rows[0].name)
 
+	def test_a_lost_transaction_abandons_the_batch_without_acknowledging(self):
+		"""A deadlock rolls back rows this batch already persisted.
+
+		InnoDB rolls the whole transaction back and destroys the savepoint, so
+		the earlier messages are gone from the database. Acknowledging them
+		would tell the broker to forget messages nothing holds — the one
+		ordering this worker promises never happens.
+		"""
+		consumer = _make_consumer(enabled=1)
+		queue_messages(
+			[
+				{"payload_raw": '{"n": 1}', "provider_message_id": "m1"},
+				{"payload_raw": '{"n": 2}', "provider_message_id": "m2"},
+			]
+		)
+
+		original_persist = cw.persist_message
+
+		def deadlocking_persist(consumer_doc, message):
+			if message["provider_message_id"] == "m2":
+				raise frappe.QueryDeadlockError("Deadlock found when trying to get lock")
+			return original_persist(consumer_doc, message)
+
+		cw.persist_message = deadlocking_persist
+		try:
+			counts = cw.poll_consumer(consumer.name)
+		finally:
+			cw.persist_message = original_persist
+
+		self.assertEqual(counts["received"], 0)
+		self.assertEqual(counts["ignored"], 0)
+		self.assertEqual(take_acked(), [])
+
+	def test_a_destroyed_savepoint_does_not_escape_the_poll(self):
+		"""Rolling back to a savepoint the database no longer has must not raise.
+
+		Without the guard the rollback raises a second exception out of
+		poll_consumer, abandoning every message after the failed one — each of
+		which is then redelivered forever.
+		"""
+		consumer = _make_consumer(enabled=1)
+		queue_messages(
+			[
+				{"payload_raw": '{"n": 1}', "provider_message_id": "m1"},
+				{"payload_raw": '{"n": 2}', "provider_message_id": "m2"},
+			]
+		)
+
+		original_persist = cw.persist_message
+		original_rollback = frappe.db.rollback
+
+		def failing_persist(consumer_doc, message):
+			if message["provider_message_id"] == "m1":
+				raise RuntimeError("persist blew up")
+			return original_persist(consumer_doc, message)
+
+		def rollback_without_the_savepoint(*args, save_point=None, **kwargs):
+			if save_point:
+				raise RuntimeError(f"SAVEPOINT {save_point} does not exist")
+			return original_rollback(*args, **kwargs)
+
+		cw.persist_message = failing_persist
+		frappe.db.rollback = rollback_without_the_savepoint
+		try:
+			counts = cw.poll_consumer(consumer.name)
+		finally:
+			cw.persist_message = original_persist
+			frappe.db.rollback = original_rollback
+
+		# The second message still got through, which is the whole point.
+		self.assertEqual(counts["received"], 1)
+		self.assertEqual([m["provider_message_id"] for m in take_acked()], ["m2"])
+
 	def test_the_dispatcher_skips_disabled_consumers(self):
 		_make_consumer(enabled=0)
 		queue_messages([{"payload_raw": '{"n": 1}', "provider_message_id": "m1"}])

@@ -69,7 +69,9 @@ def poll_consumer(name: str) -> dict[str, int]:
 	Persists and commits every accepted message *before* acknowledging any of
 	them. A crash between the two means the broker redelivers a message we
 	already hold, which deduplication records as Ignored. There is no ordering
-	in which a message is acknowledged but not stored.
+	in which a message is acknowledged but not stored — which is also why a
+	failure that destroys the transaction abandons the entire batch
+	unacknowledged instead of acking rows that were rolled back with it.
 	"""
 	consumer = frappe.get_doc("Event Bus Consumer", name)
 	counts = {"received": 0, "ignored": 0, "rejected": 0}
@@ -88,8 +90,29 @@ def poll_consumer(name: str) -> dict[str, int]:
 			frappe.db.savepoint("eb_inbox_msg")
 			try:
 				row = persist_message(consumer, message)
+			except (frappe.QueryDeadlockError, frappe.QueryTimeoutError):
+				# InnoDB has already rolled the whole transaction back, taking
+				# this savepoint — and every row persisted earlier in this batch
+				# — with it. Rolling back to a savepoint that no longer exists
+				# would raise a second error out of poll_consumer and abandon
+				# the batch mid-flight; acknowledging the earlier messages would
+				# acknowledge rows that no longer exist. So drop the whole batch
+				# unacknowledged: the broker redelivers all of it and
+				# deduplication absorbs whatever arrives twice.
+				frappe.log_error(
+					title="Event Bus: inbox persist lost the transaction",
+					message=frappe.get_traceback(),
+				)
+				accepted.clear()
+				counts["received"] = counts["ignored"] = 0
+				break
 			except Exception:
-				frappe.db.rollback(save_point="eb_inbox_msg")
+				try:
+					frappe.db.rollback(save_point="eb_inbox_msg")
+				except Exception:
+					# The savepoint is gone (the transaction was rolled back
+					# under us). Nothing to undo; keep processing the batch.
+					pass
 				frappe.log_error(
 					title="Event Bus: inbox persist failed",
 					message=frappe.get_traceback(),
