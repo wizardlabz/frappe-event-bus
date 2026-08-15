@@ -44,3 +44,36 @@ class TestConsumerDocType(FrappeTestCase):
 		"""The field exists from this phase, but only polling is implemented."""
 		with self.assertRaises(frappe.ValidationError):
 			_make_consumer(consumption_mode="Dedicated Worker")
+
+
+from frappe_event_bus.consumer.contract import open_consume_session
+from frappe_event_bus.tests.fake_consume_provider import (
+	queue_messages,
+	register_fake_consume_provider,
+	take_acked,
+)
+
+
+class TestConsumeContract(FrappeTestCase):
+	def setUp(self):
+		register_fake_consume_provider()
+		frappe.delete_doc_if_exists("Event Bus Consumer", CONSUMER, force=1)
+
+	def tearDown(self):
+		frappe.delete_doc_if_exists("Event Bus Consumer", CONSUMER, force=1)
+
+	def test_a_session_receives_and_acknowledges(self):
+		consumer = _make_consumer()
+		queue_messages([{"payload_raw": '{"a": 1}', "provider_message_id": "m1"}])
+		with open_consume_session(consumer) as session:
+			messages = session.receive(10)
+			self.assertEqual(len(messages), 1)
+			session.ack(messages[0])
+		self.assertEqual([m["provider_message_id"] for m in take_acked()], ["m1"])
+
+	def test_an_unsupported_contract_is_refused_by_name(self):
+		register_fake_consume_provider(contract="batch_commit")
+		consumer = _make_consumer()
+		with self.assertRaises(NotImplementedError) as ctx:
+			open_consume_session(consumer)
+		self.assertIn("batch_commit", str(ctx.exception))
