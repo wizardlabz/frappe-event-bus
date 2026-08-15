@@ -61,3 +61,9 @@ class TestDedupKey(FrappeTestCase):
 		expected = hashlib.sha256('{"order_id": "SO-1"}'.encode()).hexdigest()
 		message = _message(provider_message_id=None)
 		self.assertEqual(compute_dedup_key(_consumer("External Message ID"), message), expected)
+
+	def test_a_partially_resolved_expression_falls_back_to_the_payload_hash(self):
+		"""A half-rendered key would collide across unrelated messages."""
+		expected = hashlib.sha256('{"order_id": "SO-1"}'.encode()).hexdigest()
+		consumer = _consumer("Custom Expression", "{{ consumer.name }}-{{ payload.missing }}")
+		self.assertEqual(compute_dedup_key(consumer, _message()), expected)

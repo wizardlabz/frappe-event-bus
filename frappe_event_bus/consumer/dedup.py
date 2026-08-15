@@ -15,12 +15,13 @@ from typing import Any
 
 import frappe
 
-# frappe.render_template renders with jinja2.DebugUndefined, which stringifies
-# an unresolved variable as "{{ ... }}" instead of raising or returning an
-# empty string. A fully-unresolved render must be treated the same as a
-# raised error so a missing field falls back to the payload hash rather than
-# becoming the dedup key itself.
-_UNRESOLVED_EXPRESSION_RE = re.compile(r"^\{\{ .+ \}\}$")
+#: A rendered key must contain no residual Jinja. frappe.render_template uses
+#: jinja2.DebugUndefined, which stringifies an unresolved variable as
+#: "{{ no such element: ... }}" rather than raising — and it does so even when
+#: the rest of the expression resolved. Two different messages missing the same
+#: field would then render an identical key and the second would be discarded as
+#: a duplicate, so any residue at all forces the payload-hash fallback.
+_UNRESOLVED_EXPRESSION_RE = re.compile(r"\{\{.*?\}\}")
 
 
 def payload_hash(message: dict[str, Any]) -> str:
@@ -66,7 +67,7 @@ def _render_expression(expression: str, consumer: Any, message: dict[str, Any]) 
 		)
 		return None
 
-	if _UNRESOLVED_EXPRESSION_RE.match(rendered):
+	if _UNRESOLVED_EXPRESSION_RE.search(rendered):
 		return None
 
 	return rendered
