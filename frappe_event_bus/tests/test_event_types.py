@@ -19,7 +19,9 @@ from frappe.tests.utils import FrappeTestCase
 
 from frappe_event_bus.tests.fake_provider import register_fake_provider
 
-TEST_DOCTYPE = "_Test EB Lifecycle Doc"
+# No leading underscore: the "_Test" convention applies to test *records*,
+# but a DocType name must start with a letter (see DocType.validate_name).
+TEST_DOCTYPE = "Test EB Lifecycle Doc"
 TEMPLATE = "_Test EB Lifecycle Template"
 EVENT_TYPES = ("after_insert", "on_update", "on_submit", "on_cancel", "on_trash")
 
