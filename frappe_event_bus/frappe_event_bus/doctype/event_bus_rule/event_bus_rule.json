@@ -5,6 +5,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "tab_rule",
   "rule_name",
   "enabled",
   "column_break_head",
@@ -14,12 +15,21 @@
   "condition",
   "section_break_message",
   "message_template",
+  "tab_destinations",
+  "section_break_dest",
+  "destinations",
+  "tab_advanced",
   "deduplication_key_template",
   "description",
-  "section_break_dest",
-  "destinations"
+  "tab_connections",
+  "connections_html"
  ],
  "fields": [
+  {
+   "fieldname": "tab_rule",
+   "fieldtype": "Tab Break",
+   "label": "Rule"
+  },
   {
    "fieldname": "rule_name",
    "fieldtype": "Data",
@@ -82,6 +92,11 @@
    "reqd": 1
   },
   {
+   "fieldname": "tab_advanced",
+   "fieldtype": "Tab Break",
+   "label": "Advanced"
+  },
+  {
    "description": "Optional Jinja template producing a deduplication key (context exposes 'doc').",
    "fieldname": "deduplication_key_template",
    "fieldtype": "Data",
@@ -93,6 +108,11 @@
    "label": "Description"
   },
   {
+   "fieldname": "tab_destinations",
+   "fieldtype": "Tab Break",
+   "label": "Destinations"
+  },
+  {
    "fieldname": "section_break_dest",
    "fieldtype": "Section Break",
    "label": "Destinations"
@@ -102,10 +122,26 @@
    "fieldtype": "Table",
    "label": "Destinations",
    "options": "Event Bus Rule Destination"
+  },
+  {
+   "fieldname": "tab_connections",
+   "fieldtype": "Tab Break",
+   "label": "Connections"
+  },
+  {
+   "fieldname": "connections_html",
+   "fieldtype": "HTML",
+   "label": "Connections"
   }
  ],
  "index_web_pages_for_search": 1,
- "links": [],
+ "links": [
+  {
+   "group": "Delivery",
+   "link_doctype": "Event Bus Outbox Message",
+   "link_fieldname": "event_rule"
+  }
+ ],
  "modified": "2026-06-29 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Frappe Event Bus",
@@ -125,5 +161,6 @@
  ],
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }

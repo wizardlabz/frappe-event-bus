@@ -53,8 +53,13 @@ def preview_payload(
 	stored example context.
 
 	Returns:
-		Dict with ``valid``, ``output`` (string) and optional ``error``.
+		The staged report from :func:`render_report` — ``ok``, ``rendered``,
+		``json_valid``, ``schema_present``, ``schema_valid``, ``output``,
+		``stage`` and ``error`` — so the UI can show which check failed. Also
+		carries ``valid`` for backwards compatibility.
 	"""
+	from frappe_event_bus.rendering import render_report
+
 	template = frappe.get_doc("Event Bus Message Template", message_template)
 
 	if reference_doctype and reference_name:
@@ -63,11 +68,36 @@ def preview_payload(
 	else:
 		context = frappe.parse_json(template.example_context) if template.example_context else {}
 
-	try:
-		output = template.render(context)
-		return {"valid": True, "output": output, "parsed": json.loads(output)}
-	except frappe.ValidationError as exc:
-		return {"valid": False, "error": str(exc)}
+	report = render_report(template.jinja_template, context, template.json_schema)
+	report["valid"] = report["ok"]
+	return report
+
+
+@frappe.whitelist()
+def get_field_tree(doctype: str) -> dict[str, Any]:
+	"""Return the two-level picker tree for ``doctype``.
+
+	Args:
+		doctype: DocType to introspect.
+	"""
+	frappe.only_for("System Manager")
+	from frappe_event_bus.template_builder import build_field_tree
+
+	return build_field_tree(doctype)
+
+
+@frappe.whitelist()
+def generate_template(doctype: str, selection: str | dict[str, Any]) -> str:
+	"""Generate Jinja for ``doctype`` from a picker ``selection``.
+
+	Args:
+		doctype: DocType the template targets.
+		selection: ``{"fields": [...], "children": {table: [...]}}``, JSON or dict.
+	"""
+	frappe.only_for("System Manager")
+	from frappe_event_bus.template_builder import generate_jinja
+
+	return generate_jinja(doctype, _as_dict(selection))
 
 
 def _as_dict(value: str | dict[str, Any]) -> dict[str, Any]:

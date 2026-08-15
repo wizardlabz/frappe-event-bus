@@ -252,8 +252,14 @@ app_license = "gpl-3.0"
 # Frappe Event Bus configuration
 # =============================================================================
 
-# Frontend: Message Template payload preview (Vue 3).
-app_include_js = "/assets/frappe_event_bus/js/payload_preview.bundle.js"
+# Frontend: Message Template payload preview and field picker (Vue 3).
+# Bare bundle names only — bundled_asset() skips rewriting anything that already
+# starts with /assets, which would ship the unbundled ESM source to the browser.
+app_include_js = [
+	"payload_preview.bundle.js",
+	"template_builder.bundle.js",
+	"connections_tab.bundle.js",
+]
 
 # Generic document-event hook -> rule engine.
 doc_events = {
@@ -268,6 +274,9 @@ doc_events = {
 
 # Drain the outbox on a schedule (retry due / pending messages).
 scheduler_events = {
+	"daily": [
+		"frappe_event_bus.publisher.retention.purge_outbox",
+	],
 	"cron": {
 		"*/5 * * * *": [
 			"frappe_event_bus.publisher.retry.process_outbox",

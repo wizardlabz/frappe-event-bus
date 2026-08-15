@@ -5,20 +5,32 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "tab_template",
   "template_name",
-  "message_type",
+  "applies_to_doctype",
   "column_break_head",
-  "version",
   "enabled",
   "description",
   "section_break_template",
   "jinja_template",
+  "tab_validation",
+  "section_break_schema",
   "json_schema",
   "section_break_example",
   "example_context",
-  "example_output"
+  "example_output",
+  "tab_preview",
+  "section_break_live",
+  "payload_preview_html",
+  "tab_connections",
+  "connections_html"
  ],
  "fields": [
+  {
+   "fieldname": "tab_template",
+   "fieldtype": "Tab Break",
+   "label": "Template"
+  },
   {
    "fieldname": "template_name",
    "fieldtype": "Data",
@@ -28,19 +40,17 @@
    "unique": 1
   },
   {
-   "fieldname": "message_type",
-   "fieldtype": "Data",
+   "description": "Optional. Bind this template to a DocType to enable the field picker and real-document preview. Leave blank for a generic, reusable template.",
+   "fieldname": "applies_to_doctype",
+   "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Message Type"
+   "in_standard_filter": 1,
+   "label": "Applies To DocType",
+   "options": "DocType"
   },
   {
    "fieldname": "column_break_head",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "version",
-   "fieldtype": "Data",
-   "label": "Version"
   },
   {
    "default": "1",
@@ -67,6 +77,11 @@
    "reqd": 1
   },
   {
+   "fieldname": "tab_validation",
+   "fieldtype": "Tab Break",
+   "label": "JSON Schema"
+  },
+  {
    "description": "Optional JSON Schema used to validate the rendered payload.",
    "fieldname": "json_schema",
    "fieldtype": "Code",
@@ -76,10 +91,10 @@
   {
    "fieldname": "section_break_example",
    "fieldtype": "Section Break",
-   "label": "Preview"
+   "label": "Stored Example"
   },
   {
-   "description": "Sample context (JSON) used to render the preview.",
+   "description": "Sample context (JSON) saved with the template. Used by render_example on save; the live preview above uses a real document instead.",
    "fieldname": "example_context",
    "fieldtype": "Code",
    "label": "Example Context",
@@ -91,10 +106,51 @@
    "label": "Example Output",
    "options": "JSON",
    "read_only": 1
+  },
+  {
+   "fieldname": "section_break_live",
+   "fieldtype": "Section Break",
+   "label": "Payload Preview"
+  },
+  {
+   "fieldname": "payload_preview_html",
+   "fieldtype": "HTML",
+   "label": "Payload Preview"
+  },
+  {
+   "fieldname": "section_break_schema",
+   "fieldtype": "Section Break",
+   "label": "JSON Schema"
+  },
+  {
+   "fieldname": "tab_preview",
+   "fieldtype": "Tab Break",
+   "label": "Preview"
+  },
+  {
+   "fieldname": "tab_connections",
+   "fieldtype": "Tab Break",
+   "label": "Connections"
+  },
+  {
+   "fieldname": "connections_html",
+   "fieldtype": "HTML",
+   "label": "Connections"
   }
  ],
  "index_web_pages_for_search": 1,
- "links": [],
+ "links": [
+  {
+   "group": "Usage",
+   "link_doctype": "Event Bus Rule",
+   "link_fieldname": "message_template"
+  },
+  {
+   "group": "Delivery",
+   "link_doctype": "Event Bus Outbox Message",
+   "link_fieldname": "message_template"
+  }
+ ],
  "modified": "2026-06-29 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Frappe Event Bus",
@@ -114,5 +170,6 @@
  ],
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }

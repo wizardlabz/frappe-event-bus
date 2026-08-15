@@ -4,6 +4,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "tab_message",
   "status",
   "event_rule",
   "message_template",
@@ -12,23 +13,43 @@
   "connection",
   "destination",
   "routing_key",
+  "priority",
   "section_break_ref",
   "reference_doctype",
   "reference_document",
   "event_type",
   "column_break_ref",
   "deduplication_key",
+  "tab_payload",
   "section_break_payload",
   "payload",
   "headers",
+  "tab_delivery",
   "section_break_delivery",
   "attempt_count",
   "next_retry_at",
   "published_at",
   "column_break_delivery",
-  "last_error"
+  "last_error",
+  "tab_connections",
+  "connections_html"
  ],
  "fields": [
+  {
+   "fieldname": "tab_message",
+   "fieldtype": "Tab Break",
+   "label": "Message"
+  },
+  {
+   "fieldname": "tab_payload",
+   "fieldtype": "Tab Break",
+   "label": "Payload"
+  },
+  {
+   "fieldname": "tab_delivery",
+   "fieldtype": "Tab Break",
+   "label": "Delivery"
+  },
   {
    "default": "Pending",
    "fieldname": "status",
@@ -153,10 +174,35 @@
    "fieldname": "last_error",
    "fieldtype": "Small Text",
    "label": "Last Error"
+  },
+  {
+   "default": "0",
+   "description": "Copied from the rule's destination row. Lower numbers publish first.",
+   "fieldname": "priority",
+   "fieldtype": "Int",
+   "label": "Priority",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "tab_connections",
+   "fieldtype": "Tab Break",
+   "label": "Connections"
+  },
+  {
+   "fieldname": "connections_html",
+   "fieldtype": "HTML",
+   "label": "Connections"
   }
  ],
  "index_web_pages_for_search": 1,
- "links": [],
+ "links": [
+  {
+   "group": "Delivery",
+   "link_doctype": "Event Bus Delivery Attempt",
+   "link_fieldname": "outbox_message"
+  }
+ ],
  "modified": "2026-06-29 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Frappe Event Bus",

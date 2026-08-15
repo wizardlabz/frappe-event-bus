@@ -27,6 +27,7 @@ class EventBusOutboxMessage(Document):
 		message_template: DF.Link | None
 		next_retry_at: DF.Datetime | None
 		payload: DF.Code | None
+		priority: DF.Int
 		provider: DF.Data | None
 		published_at: DF.Datetime | None
 		reference_doctype: DF.Data | None

@@ -120,6 +120,7 @@ def _create_outbox_message(
 			"connection": destination.connection,
 			"destination": destination.destination,
 			"routing_key": destination.routing_key,
+			"priority": int(destination.priority or 0),
 			"reference_doctype": doc.doctype,
 			"reference_document": doc.name,
 			"event_type": event_type,

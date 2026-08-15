@@ -22,15 +22,14 @@ class EventBusMessageTemplate(Document):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
+		applies_to_doctype: DF.Link | None
 		description: DF.SmallText | None
 		enabled: DF.Check
 		example_context: DF.Code | None
 		example_output: DF.Code | None
 		jinja_template: DF.Code
 		json_schema: DF.Code | None
-		message_type: DF.Data | None
 		template_name: DF.Data
-		version: DF.Data | None
 	# end: auto-generated types
 
 	def render(self, context: dict[str, Any]) -> str:

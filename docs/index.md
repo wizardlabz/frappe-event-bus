@@ -15,6 +15,10 @@ End-user documentation for Frappe Event Bus. For a project overview and installa
 
 *Event Bus Settings* (single doctype): enable/disable the bus, max publish attempts, retry backoff seconds, worker batch size, delivery-logging toggle, retention days.
 
+**Retention** — a daily scheduled job deletes outbox messages (and their delivery attempts) older than *retention days*, but only in the succeeded states `Published` and `Cancelled`. Failed, Dead Lettered and Retry Scheduled messages are kept regardless of age, so retention never destroys the evidence you need to debug a delivery problem. Set it to `0` to disable purging entirely.
+
+**Priority** — each destination row on a rule carries a *priority*. It is copied onto the outbox message, and the worker publishes in ascending order (lower number first), falling back to creation order for ties.
+
 ## Providers
 
 The core is broker-agnostic. Install a provider app and it registers itself via the `event_bus_providers` hook:
@@ -25,6 +29,7 @@ The core is broker-agnostic. Install a provider app and it registers itself via 
 ## Development
 
 - [Provider interface](development/provider-interface.md) — the contract every provider implements (`publish`, `test_publish`, `validate_connection`, `validate_destination`) and the normalized message/result shapes.
+- [Template authoring & form layout](development/template-authoring-design.md) — design for the doctype-aware template field picker (`Insert from DocType`), optional `applies_to_doctype` binding, and tabbed form layouts.
 
 ---
 
