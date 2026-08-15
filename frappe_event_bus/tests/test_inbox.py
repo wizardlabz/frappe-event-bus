@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
@@ -143,3 +145,68 @@ class TestPersistMessage(FrappeTestCase):
 		self.consumer.ordering_key_expression = "{{ payload.missing }}"
 		row = persist_message(self.consumer, _incoming())
 		self.assertEqual(row.ordering_key, "SO-1")
+
+	def test_a_list_payload_is_persisted_rather_than_raising(self):
+		"""Default configuration reads a named field the payload cannot have."""
+		message = _incoming()
+		message["payload_raw"] = "[1, 2, 3]"
+		message["payload"] = frappe.parse_json("[1, 2, 3]")
+		row = persist_message(self.consumer, message)
+		self.assertEqual(row.status, "Received")
+		self.assertEqual(row.deduplication_key, hashlib.sha256(b"[1, 2, 3]").hexdigest())
+		self.assertIsNone(row.message_type)
+
+
+class TestOverLongKeys(FrappeTestCase):
+	"""A key too wide for its column must never block persistence.
+
+	``deduplication_key``, ``ordering_key`` and ``message_type`` are Data
+	columns (140 characters). Frappe's ``_validate_length`` raises on a longer
+	value, and a message that cannot be inserted is never acknowledged — so the
+	broker redelivers it every cycle forever, and no operator action clears it.
+	"""
+
+	def setUp(self):
+		frappe.db.delete("Event Bus Inbox Message", {"consumer": CONSUMER_DOC})
+		self.consumer = _consumer_doc()
+
+	def tearDown(self):
+		frappe.delete_doc_if_exists("Event Bus Consumer", CONSUMER_DOC, force=1)
+
+	def test_an_over_long_deduplication_key_falls_back_to_the_payload_hash(self):
+		long_id = "X" * 300
+		message = _incoming(long_id)
+		row = persist_message(self.consumer, message)
+
+		self.assertEqual(row.status, "Received")
+		self.assertEqual(
+			row.deduplication_key,
+			hashlib.sha256(message["payload_raw"].encode()).hexdigest(),
+		)
+
+	def test_an_over_long_ordering_key_falls_back_to_the_deduplication_key(self):
+		self.consumer.ordering_key_expression = "{{ payload.order_id }}{{ payload.order_id }}"
+		message = _incoming("Y" * 100)
+		row = persist_message(self.consumer, message)
+
+		self.assertEqual(row.status, "Received")
+		self.assertEqual(row.ordering_key, row.deduplication_key)
+
+	def test_an_over_long_message_type_is_dropped_rather_than_stored(self):
+		raw = '{"order_id": "SO-9", "message_type": "%s"}' % ("T" * 300)
+		message = _incoming()
+		message["payload_raw"] = raw
+		message["payload"] = frappe.parse_json(raw)
+		row = persist_message(self.consumer, message)
+
+		self.assertEqual(row.status, "Received")
+		self.assertIsNone(row.message_type)
+		self.assertEqual(row.deduplication_key, "SO-9")
+
+	def test_an_over_long_external_message_id_is_dropped_rather_than_stored(self):
+		message = _incoming()
+		message["provider_message_id"] = "Z" * 300
+		row = persist_message(self.consumer, message)
+
+		self.assertEqual(row.status, "Received")
+		self.assertIsNone(row.external_message_id)
