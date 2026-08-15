@@ -77,3 +77,49 @@ class TestConsumeContract(FrappeTestCase):
 		with self.assertRaises(NotImplementedError) as ctx:
 			open_consume_session(consumer)
 		self.assertIn("batch_commit", str(ctx.exception))
+
+
+from frappe.utils import add_to_date, now_datetime
+
+from frappe_event_bus.consumer import worker as cw
+
+
+class TestDueAndClaim(FrappeTestCase):
+	def setUp(self):
+		frappe.delete_doc_if_exists("Event Bus Consumer", CONSUMER, force=1)
+
+	def tearDown(self):
+		frappe.delete_doc_if_exists("Event Bus Consumer", CONSUMER, force=1)
+
+	def test_a_consumer_that_never_polled_is_due(self):
+		consumer = _make_consumer()
+		self.assertTrue(cw.is_due(consumer))
+
+	def test_a_recently_polled_consumer_is_not_due(self):
+		consumer = _make_consumer(poll_interval=300)
+		consumer.db_set("last_polled_at", now_datetime())
+		consumer.reload()
+		self.assertFalse(cw.is_due(consumer))
+
+	def test_a_consumer_past_its_interval_is_due(self):
+		consumer = _make_consumer(poll_interval=60)
+		consumer.db_set("last_polled_at", add_to_date(now_datetime(), seconds=-120))
+		consumer.reload()
+		self.assertTrue(cw.is_due(consumer))
+
+	def test_only_the_first_claimer_wins(self):
+		consumer = _make_consumer()
+		self.assertTrue(cw.claim_consumer(consumer.name))
+		self.assertFalse(cw.claim_consumer(consumer.name))
+
+	def test_releasing_allows_a_later_claim(self):
+		consumer = _make_consumer()
+		cw.claim_consumer(consumer.name)
+		cw.release_consumer(consumer.name)
+		self.assertTrue(cw.claim_consumer(consumer.name))
+
+	def test_a_stale_claim_can_be_taken_over(self):
+		"""A worker killed mid-cycle must not strand its consumer forever."""
+		consumer = _make_consumer(poll_interval=60)
+		consumer.db_set("claimed_at", add_to_date(now_datetime(), seconds=-3600))
+		self.assertTrue(cw.claim_consumer(consumer.name))
