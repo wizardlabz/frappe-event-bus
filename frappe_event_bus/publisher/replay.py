@@ -19,6 +19,11 @@ def replay_outbox_message(name: str) -> dict[str, Any]:
 	Returns:
 		Dict with the new status.
 	"""
+	# Replaying re-sends a message to an external system. It is a whitelisted
+	# endpoint, so the caller must be permitted to modify the message itself
+	# rather than merely be signed in.
+	frappe.has_permission("Event Bus Outbox Message", "write", doc=name, throw=True)
+
 	outbox = frappe.get_doc("Event Bus Outbox Message", name)
 	if outbox.status not in REPLAYABLE_STATUSES:
 		frappe.throw(
