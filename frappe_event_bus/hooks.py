@@ -281,6 +281,11 @@ scheduler_events = {
 		"*/5 * * * *": [
 			"frappe_event_bus.publisher.retry.process_outbox",
 		],
+		# Consumers carry their own poll_interval; this runs every minute and
+		# polls only those that are due.
+		"* * * * *": [
+			"frappe_event_bus.consumer.worker.poll_due_consumers",
+		],
 	},
 }
 

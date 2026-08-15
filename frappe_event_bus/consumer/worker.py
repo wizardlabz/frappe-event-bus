@@ -51,3 +51,91 @@ def release_consumer(name: str) -> None:
 		.set(consumer.last_polled_at, now_datetime())
 		.where(consumer.name == name)
 	).run()
+
+
+from frappe_event_bus.consumer.contract import open_consume_session
+from frappe_event_bus.consumer.inbox import persist_message
+
+
+def poll_consumer(name: str) -> dict[str, int]:
+	"""Drain one batch for ``consumer``.
+
+	Persists and commits every accepted message *before* acknowledging any of
+	them. A crash between the two means the broker redelivers a message we
+	already hold, which deduplication records as Ignored. There is no ordering
+	in which a message is acknowledged but not stored.
+	"""
+	consumer = frappe.get_doc("Event Bus Consumer", name)
+	counts = {"received": 0, "ignored": 0, "rejected": 0}
+
+	with open_consume_session(consumer) as session:
+		messages = session.receive(int(consumer.batch_size or 25))
+		accepted: list[dict[str, Any]] = []
+		rejected: list[dict[str, Any]] = []
+
+		for message in messages:
+			if _too_large(consumer, message):
+				rejected.append(message)
+				continue
+			# Distinct name from persist_message's own savepoint, which nests
+			# inside this one.
+			frappe.db.savepoint("eb_inbox_msg")
+			try:
+				row = persist_message(consumer, message)
+			except Exception:
+				frappe.db.rollback(save_point="eb_inbox_msg")
+				frappe.log_error(
+					title="Event Bus: inbox persist failed",
+					message=frappe.get_traceback(),
+				)
+				# Left unacknowledged on purpose: the broker will redeliver it.
+				continue
+			accepted.append(message)
+			counts["ignored" if row.status == "Ignored" else "received"] += 1
+
+		frappe.db.commit()
+
+		for message in accepted:
+			session.ack(message)
+		for message in rejected:
+			session.reject(message, requeue=False)
+			counts["rejected"] += 1
+
+	return counts
+
+
+def _too_large(consumer: Any, message: dict[str, Any]) -> bool:
+	"""True when the body exceeds the consumer's payload ceiling."""
+	limit = int(consumer.max_payload_bytes or 0)
+	if limit <= 0:
+		return False
+	return len((message.get("payload_raw") or "").encode()) > limit
+
+
+def poll_due_consumers() -> dict[str, int]:
+	"""Scheduled entry point: poll every enabled consumer that is due."""
+	counts = {"polled": 0, "skipped": 0}
+	names = frappe.get_all("Event Bus Consumer", filters={"enabled": 1}, pluck="name")
+
+	for name in names:
+		consumer = frappe.get_doc("Event Bus Consumer", name)
+		if not is_due(consumer):
+			counts["skipped"] += 1
+			continue
+		if not claim_consumer(name):
+			counts["skipped"] += 1
+			continue
+		try:
+			poll_consumer(name)
+			counts["polled"] += 1
+		except Exception:
+			# One unreachable broker must not stop the other consumers.
+			frappe.log_error(
+				title=f"Event Bus: polling consumer {name} failed",
+				message=frappe.get_traceback(),
+			)
+		finally:
+			release_consumer(name)
+
+	frappe.db.commit()
+	return counts

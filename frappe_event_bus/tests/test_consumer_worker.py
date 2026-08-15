@@ -51,6 +51,7 @@ from frappe_event_bus.tests.fake_consume_provider import (
 	queue_messages,
 	register_fake_consume_provider,
 	take_acked,
+	take_rejected,
 )
 
 
@@ -123,3 +124,73 @@ class TestDueAndClaim(FrappeTestCase):
 		consumer = _make_consumer(poll_interval=60)
 		consumer.db_set("claimed_at", add_to_date(now_datetime(), seconds=-3600))
 		self.assertTrue(cw.claim_consumer(consumer.name))
+
+
+class TestPollCycle(FrappeTestCase):
+	def setUp(self):
+		register_fake_consume_provider()
+		frappe.delete_doc_if_exists("Event Bus Consumer", CONSUMER, force=1)
+		# FrappeTestCase only rolls the DB back once per class, not after each
+		# test method. Every method here reuses the same consumer name, so
+		# without this cleanup a row left behind by an earlier method inflates
+		# the count assertions of a later one.
+		frappe.db.delete("Event Bus Inbox Message", {"consumer": CONSUMER})
+
+	def tearDown(self):
+		frappe.delete_doc_if_exists("Event Bus Consumer", CONSUMER, force=1)
+
+	def test_received_messages_are_persisted_and_acknowledged(self):
+		consumer = _make_consumer(enabled=1)
+		queue_messages([{"payload_raw": '{"n": 1}', "provider_message_id": "m1"}])
+
+		counts = cw.poll_consumer(consumer.name)
+
+		self.assertEqual(counts["received"], 1)
+		self.assertEqual([m["provider_message_id"] for m in take_acked()], ["m1"])
+		self.assertEqual(frappe.db.count("Event Bus Inbox Message", {"consumer": consumer.name}), 1)
+
+	def test_an_oversized_message_is_rejected_without_requeue(self):
+		"""A poison giant message must not be redelivered forever."""
+		consumer = _make_consumer(enabled=1, max_payload_bytes=10)
+		queue_messages([{"payload_raw": '{"n": "' + "x" * 500 + '"}', "provider_message_id": "big"}])
+
+		counts = cw.poll_consumer(consumer.name)
+
+		self.assertEqual(counts["rejected"], 1)
+		self.assertEqual(counts["received"], 0)
+		self.assertEqual([m["provider_message_id"] for m in take_rejected()], ["big"])
+
+	def test_a_redelivered_message_is_ignored_on_the_second_poll(self):
+		"""The correctness claim: an unacked-but-stored message stays stored once."""
+		consumer = _make_consumer(enabled=1)
+		body = '{"n": 7}'
+		queue_messages([{"payload_raw": body, "provider_message_id": "m1"}])
+		cw.poll_consumer(consumer.name)
+
+		# The broker never saw our ack, so it delivers the same body again.
+		queue_messages([{"payload_raw": body, "provider_message_id": "m1"}])
+		counts = cw.poll_consumer(consumer.name)
+
+		self.assertEqual(counts["ignored"], 1)
+		self.assertEqual(counts["received"], 0)
+		rows = frappe.get_all(
+			"Event Bus Inbox Message",
+			filters={"consumer": consumer.name},
+			fields=["status", "duplicate_of"],
+			order_by="creation asc",
+		)
+		self.assertEqual([r.status for r in rows], ["Received", "Ignored"])
+		self.assertIsNotNone(rows[1].duplicate_of)
+
+	def test_the_dispatcher_skips_disabled_consumers(self):
+		_make_consumer(enabled=0)
+		queue_messages([{"payload_raw": '{"n": 1}', "provider_message_id": "m1"}])
+		cw.poll_due_consumers()
+		self.assertEqual(take_acked(), [])
+
+	def test_the_dispatcher_polls_an_enabled_due_consumer(self):
+		consumer = _make_consumer(enabled=1)
+		queue_messages([{"payload_raw": '{"n": 1}', "provider_message_id": "m1"}])
+		counts = cw.poll_due_consumers()
+		self.assertEqual(counts["polled"], 1)
+		self.assertEqual(frappe.db.count("Event Bus Inbox Message", {"consumer": consumer.name}), 1)
