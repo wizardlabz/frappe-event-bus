@@ -57,15 +57,11 @@ def validate_schema_document(schema: Any, path: str = "$") -> None:
 	"""
 	if not isinstance(schema, dict):
 		raise SchemaDocumentError(
-			frappe._("Schema at {0} must be an object, got {1}").format(
-				path, type(schema).__name__
-			)
+			frappe._("Schema at {0} must be an object, got {1}").format(path, type(schema).__name__)
 		)
 
 	declared_type = schema.get("type")
-	if declared_type is not None and (
-		not isinstance(declared_type, str) or declared_type not in _TYPE_MAP
-	):
+	if declared_type is not None and (not isinstance(declared_type, str) or declared_type not in _TYPE_MAP):
 		raise SchemaDocumentError(
 			frappe._("Unknown type '{0}' at {1}. Supported types: {2}").format(
 				declared_type, path, ", ".join(sorted(_TYPE_MAP))
@@ -76,16 +72,12 @@ def validate_schema_document(schema: Any, path: str = "$") -> None:
 	if required is not None and (
 		not isinstance(required, list) or not all(isinstance(key, str) for key in required)
 	):
-		raise SchemaDocumentError(
-			frappe._("'required' at {0} must be a list of property names").format(path)
-		)
+		raise SchemaDocumentError(frappe._("'required' at {0} must be a list of property names").format(path))
 
 	properties = schema.get("properties")
 	if properties is not None:
 		if not isinstance(properties, dict):
-			raise SchemaDocumentError(
-				frappe._("'properties' at {0} must be an object").format(path)
-			)
+			raise SchemaDocumentError(frappe._("'properties' at {0} must be an object").format(path))
 		for key, subschema in properties.items():
 			validate_schema_document(subschema, f"{path}.{key}")
 

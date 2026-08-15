@@ -10,7 +10,14 @@
 // via the string `template:` option, which the runtime-only build silently
 // ignores (it renders an empty comment node, with no console error under a
 // production build). See docs/development/template-authoring-design.md.
-import { computed, createApp, defineComponent, onMounted, reactive, ref } from "vue/dist/vue.esm-bundler.js";
+import {
+	computed,
+	createApp,
+	defineComponent,
+	onMounted,
+	reactive,
+	ref,
+} from "vue/dist/vue.esm-bundler.js";
 
 const PayloadPreview = defineComponent({
 	name: "PayloadPreview",
@@ -118,7 +125,8 @@ const PayloadPreview = defineComponent({
 		// from "the payload does not match it" and points at a different file.
 		const schemaPill = computed(() => {
 			if (!state.schemaPresent) return { color: "gray", text: __("No schema set") };
-			if (state.schemaParsed === false) return { color: "orange", text: __("Invalid schema") };
+			if (state.schemaParsed === false)
+				return { color: "orange", text: __("Invalid schema") };
 			if (state.schemaValid) return { color: "green", text: __("Matches schema") };
 			return { color: "red", text: __("Fails schema") };
 		});

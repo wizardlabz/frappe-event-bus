@@ -30,17 +30,13 @@ class TestClassifyField(unittest.TestCase):
 		self.assertIn("never published", out["note"])
 
 	def test_permlevel_field_is_opt_in(self):
-		out = classify_field(
-			{"fieldname": "cost", "fieldtype": "Currency", "label": "Cost", "permlevel": 1}
-		)
+		out = classify_field({"fieldname": "cost", "fieldtype": "Currency", "label": "Cost", "permlevel": 1})
 		self.assertTrue(out["selectable"])
 		self.assertFalse(out["default_selected"])
 		self.assertIn("permlevel 1", out["note"])
 
 	def test_internal_fieldname_is_opt_in(self):
-		out = classify_field(
-			{"fieldname": "amended_from", "fieldtype": "Link", "label": "Amended From"}
-		)
+		out = classify_field({"fieldname": "amended_from", "fieldtype": "Link", "label": "Amended From"})
 		self.assertTrue(out["selectable"])
 		self.assertFalse(out["default_selected"])
 
@@ -94,7 +90,7 @@ class TestGenerateJinja(FrappeTestCase):
 		doc = frappe._dict(
 			doctype="ToDo",
 			name="TODO-0001",
-			description='has "quotes", back\\slash,\nnewline, <tag> & \'apos\'',
+			description="has \"quotes\", back\\slash,\nnewline, <tag> & 'apos'",
 			date=datetime.date(2026, 8, 2),
 		)
 		rendered = render_payload(out, {"doc": doc, "context": {"event_type": "on_update"}})
@@ -110,9 +106,7 @@ class TestGenerateJinja(FrappeTestCase):
 			description=None,
 			date=datetime.datetime(2026, 8, 2, 13, 5, 1),
 		)
-		parsed = json.loads(
-			render_payload(out, {"doc": doc, "context": {"event_type": "after_insert"}})
-		)
+		parsed = json.loads(render_payload(out, {"doc": doc, "context": {"event_type": "after_insert"}}))
 		self.assertIsNone(parsed["data"]["description"])
 		self.assertTrue(parsed["data"]["date"].startswith("2026-08-02"))
 
@@ -124,25 +118,19 @@ class TestGenerateJinja(FrappeTestCase):
 			module="Core",
 			fields=[frappe._dict(fieldname="a"), frappe._dict(fieldname='b"quoted')],
 		)
-		parsed = json.loads(
-			render_payload(out, {"doc": doc, "context": {"event_type": "on_update"}})
-		)
+		parsed = json.loads(render_payload(out, {"doc": doc, "context": {"event_type": "on_update"}}))
 		self.assertEqual([r["fieldname"] for r in parsed["data"]["fields"]], ["a", 'b"quoted'])
 
 	def test_empty_child_table_renders_empty_array(self):
 		out = generate_jinja("DocType", {"fields": [], "children": {"fields": ["fieldname"]}})
 		doc = frappe._dict(doctype="DocType", name="ToDo", fields=[])
-		parsed = json.loads(
-			render_payload(out, {"doc": doc, "context": {"event_type": "on_update"}})
-		)
+		parsed = json.loads(render_payload(out, {"doc": doc, "context": {"event_type": "on_update"}}))
 		self.assertEqual(parsed["data"]["fields"], [])
 
 	def test_empty_selection_still_valid_json(self):
 		out = generate_jinja("ToDo", {"fields": [], "children": {}})
 		doc = frappe._dict(doctype="ToDo", name="TODO-0003")
-		parsed = json.loads(
-			render_payload(out, {"doc": doc, "context": {"event_type": "on_trash"}})
-		)
+		parsed = json.loads(render_payload(out, {"doc": doc, "context": {"event_type": "on_trash"}}))
 		self.assertEqual(parsed["data"], {})
 
 
@@ -155,9 +143,7 @@ class TestBuilderApi(FrappeTestCase):
 		self.assertIn("description", {f["fieldname"] for f in tree["fields"]})
 
 	def test_generate_template_accepts_json_string_selection(self):
-		out = api.generate_template(
-			"ToDo", json.dumps({"fields": ["description"], "children": {}})
-		)
+		out = api.generate_template("ToDo", json.dumps({"fields": ["description"], "children": {}}))
 		self.assertIn("{{ doc.description | json }}", out)
 
 	def test_generate_template_accepts_dict_selection(self):

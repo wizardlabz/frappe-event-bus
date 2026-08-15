@@ -35,7 +35,10 @@ const FieldPicker = defineComponent({
 					args: { doctype: props.doctype },
 				});
 				const tree = r.message || {};
-				state.fields = (tree.fields || []).map((f) => ({ ...f, checked: f.default_selected }));
+				state.fields = (tree.fields || []).map((f) => ({
+					...f,
+					checked: f.default_selected,
+				}));
 				state.children = (tree.children || []).map((c) => ({
 					...c,
 					fields: (c.fields || []).map((f) => ({ ...f, checked: f.default_selected })),

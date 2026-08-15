@@ -59,22 +59,24 @@ def _make_outbox(status: str, age_days: int) -> str:
 	).insert(ignore_permissions=True)
 	old = add_days(now_datetime(), -age_days)
 	# creation is set by the framework; retention reads modified.
-	frappe.db.set_value(
-		"Event Bus Outbox Message", doc.name, "modified", old, update_modified=False
-	)
+	frappe.db.set_value("Event Bus Outbox Message", doc.name, "modified", old, update_modified=False)
 	return doc.name
 
 
 def _attempt_for(outbox: str) -> str:
-	return frappe.get_doc(
-		{
-			"doctype": "Event Bus Delivery Attempt",
-			"outbox_message": outbox,
-			"attempt_number": 1,
-			"provider": "fake",
-			"success": 1,
-		}
-	).insert(ignore_permissions=True).name
+	return (
+		frappe.get_doc(
+			{
+				"doctype": "Event Bus Delivery Attempt",
+				"outbox_message": outbox,
+				"attempt_number": 1,
+				"provider": "fake",
+				"success": 1,
+			}
+		)
+		.insert(ignore_permissions=True)
+		.name
+	)
 
 
 def _set_retention(days):

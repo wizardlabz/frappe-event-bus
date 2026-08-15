@@ -110,7 +110,7 @@ class TestRenderReport(FrappeTestCase):
 		schema = '{"type": "object", "required": ["missing"]}'
 		r = render_report('{"a": 1}', {}, schema)
 		self.assertFalse(r["ok"])
-		self.assertTrue(r["json_valid"])   # the payload itself is fine
+		self.assertTrue(r["json_valid"])  # the payload itself is fine
 		self.assertFalse(r["schema_valid"])
 		self.assertEqual(r["stage"], "schema")
 		self.assertIn("missing", r["error"])
@@ -133,9 +133,9 @@ class TestSchemaDocumentValidation(FrappeTestCase):
 	def test_malformed_schema_json_is_reported_as_a_schema_problem(self):
 		r = render_report('{"a": 1}', {}, "{not json")
 		self.assertFalse(r["ok"])
-		self.assertTrue(r["json_valid"])       # the payload was fine
+		self.assertTrue(r["json_valid"])  # the payload was fine
 		self.assertFalse(r["schema_parsed"])
-		self.assertIsNone(r["schema_valid"])   # never got to check it
+		self.assertIsNone(r["schema_valid"])  # never got to check it
 		self.assertEqual(r["stage"], "schema_invalid")
 
 	def test_unknown_type_is_rejected_rather_than_silently_ignored(self):
@@ -168,7 +168,7 @@ class TestSchemaDocumentValidation(FrappeTestCase):
 
 	def test_payload_violation_is_still_distinct_from_a_broken_schema(self):
 		r = render_report('{"a": 1}', {}, '{"type": "object", "required": ["b"]}')
-		self.assertTrue(r["schema_parsed"])    # schema itself is fine
+		self.assertTrue(r["schema_parsed"])  # schema itself is fine
 		self.assertFalse(r["schema_valid"])
 		self.assertEqual(r["stage"], "schema")
 
