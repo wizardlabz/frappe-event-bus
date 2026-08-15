@@ -5,9 +5,11 @@ ever exercised — so a regression in submit/cancel/trash handling would have
 gone unnoticed. These tests drive a real document through its whole lifecycle
 and assert which rules fire at each step.
 
-``Closing Stock Balance`` is used because it is submittable and has no
-mandatory fields, so the lifecycle can be driven without building unrelated
-master data.
+Driving ``on_submit``/``on_cancel`` needs a submittable DocType, and Frappe
+core ships none — the only submittable doctypes on a bench come from ERPNext,
+which this app does not depend on and CI does not install. So the fixture
+below creates its own: a custom, submittable DocType with no mandatory fields,
+built once per class and dropped afterwards.
 """
 
 from __future__ import annotations
@@ -17,9 +19,53 @@ from frappe.tests.utils import FrappeTestCase
 
 from frappe_event_bus.tests.fake_provider import register_fake_provider
 
-TEST_DOCTYPE = "Closing Stock Balance"
+TEST_DOCTYPE = "_Test EB Lifecycle Doc"
 TEMPLATE = "_Test EB Lifecycle Template"
 EVENT_TYPES = ("after_insert", "on_update", "on_submit", "on_cancel", "on_trash")
+
+
+def _ensure_test_doctype() -> None:
+	"""Create the submittable fixture DocType if it is not already present.
+
+	``custom=1`` keeps this in the database only — no files are written and
+	developer mode is not required. Creating a DocType is DDL, which commits
+	implicitly and therefore escapes the per-test rollback, so this runs once
+	per class and is torn down explicitly by :func:`_drop_test_doctype`.
+	"""
+	if frappe.db.exists("DocType", TEST_DOCTYPE):
+		return
+
+	frappe.get_doc(
+		{
+			"doctype": "DocType",
+			"name": TEST_DOCTYPE,
+			"module": "Frappe Event Bus",
+			"custom": 1,
+			"is_submittable": 1,
+			"autoname": "hash",
+			"fields": [{"fieldname": "title", "fieldtype": "Data", "label": "Title"}],
+			"permissions": [
+				{
+					"role": "System Manager",
+					"read": 1,
+					"write": 1,
+					"create": 1,
+					"delete": 1,
+					"submit": 1,
+					"cancel": 1,
+					"amend": 1,
+				}
+			],
+		}
+	).insert(ignore_permissions=True)
+
+
+def _drop_test_doctype() -> None:
+	"""Remove the fixture DocType and its table."""
+	if not frappe.db.exists("DocType", TEST_DOCTYPE):
+		return
+	frappe.db.delete(TEST_DOCTYPE)
+	frappe.delete_doc("DocType", TEST_DOCTYPE, force=1, ignore_permissions=True)
 
 
 def _rule_name(event_type: str) -> str:
@@ -40,9 +86,7 @@ def _setup_rules(event_types: tuple[str, ...] = EVENT_TYPES) -> None:
 			"doctype": "Event Bus Message Template",
 			"template_name": TEMPLATE,
 			"enabled": 1,
-			"jinja_template": (
-				'{"name": {{ doc.name | json }}, "event": {{ context.event_type | json }}}'
-			),
+			"jinja_template": ('{"name": {{ doc.name | json }}, "event": {{ context.event_type | json }}}'),
 		}
 	).insert(ignore_permissions=True)
 
@@ -94,6 +138,16 @@ def _events_for(docname: str) -> list[str]:
 
 
 class TestLifecycleEvents(FrappeTestCase):
+	@classmethod
+	def setUpClass(cls):
+		super().setUpClass()
+		_ensure_test_doctype()
+
+	@classmethod
+	def tearDownClass(cls):
+		_drop_test_doctype()
+		super().tearDownClass()
+
 	def setUp(self):
 		register_fake_provider()
 		_cleanup()

@@ -24,9 +24,23 @@ def _cleanup():
 	frappe.db.delete("Event Bus Outbox Message", {"event_rule": RULE})
 
 
+def _enable_bus() -> None:
+	"""Turn the bus on for this test.
+
+	``Event Bus Settings.enabled`` defaults to ``0``, and the rule engine
+	returns early when it is falsy — so without this no outbox rows are ever
+	created and every assertion below sees an empty result set.
+	"""
+	settings = frappe.get_doc("Event Bus Settings")
+	settings.enabled = 1
+	settings.save(ignore_permissions=True)
+	frappe.clear_document_cache("Event Bus Settings", "Event Bus Settings")
+
+
 class TestDestinationPriority(FrappeTestCase):
 	def setUp(self):
 		_cleanup()
+		_enable_bus()
 		frappe.get_doc(
 			{
 				"doctype": "Event Bus Message Template",
@@ -94,9 +108,7 @@ class TestDestinationPriority(FrappeTestCase):
 				"reference_doctype": "ToDo",
 				"event_type": "after_insert",
 				"message_template": TEMPLATE,
-				"destinations": [
-					{"enabled": 1, "provider": "fake", "connection": "c", "destination": "d"}
-				],
+				"destinations": [{"enabled": 1, "provider": "fake", "connection": "c", "destination": "d"}],
 			}
 		).insert()
 		todo = frappe.get_doc({"doctype": "ToDo", "description": "no-prio"}).insert()
