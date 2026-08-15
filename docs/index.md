@@ -1,35 +1,68 @@
 # Frappe Event Bus — Documentation
 
-End-user documentation for Frappe Event Bus. For a project overview and installation, see the [README](../README.md).
+Publish durable, observable, replayable business events from Frappe and ERPNext to message brokers, without writing custom code.
+
+For a project overview see the [README](../README.md).
+
+## Start here
+
+| | |
+|---|---|
+| [Installation](installation.md) | Install the core and a provider, enable the bus. |
+| [Getting started](getting-started.md) | Publish your first message end to end. |
 
 ## Concepts
 
-- **Event Bus Rule** — binds a Reference DocType + Event Type (`after_insert`, `on_update`, `on_submit`, `on_cancel`, `on_trash`) to a Message Template and a set of destinations. An optional **condition** (a safe Python expression over `doc`) filters which documents fire.
-- **Event Bus Message Template** — a reusable Jinja template rendered to a JSON payload. Output is validated as JSON (and against an optional JSON-schema subset). Use **Preview Payload** on the form to check rendering before going live.
-- **Destination** — a child row on a Rule: which provider, connection, and provider-specific destination to publish to, plus an optional routing key/headers.
-- **Outbox** — when a rule matches, the core renders the payload once and writes **one Outbox Message per destination**, so failures are isolated. Publishing runs in a background job *after* the document transaction commits — it never blocks or rolls back the user's save.
-- **Delivery & retry** — the worker claims due messages atomically (no double-delivery), records an **Event Bus Delivery Attempt** per try, and reschedules retryable failures with exponential backoff up to a configurable max. Non-retryable failures are dead-lettered.
-- **Replay** — any failed/dead-lettered message can be reset and re-published with a fresh retry budget.
+| | |
+|---|---|
+| [Event Rules](concepts/event-rules.md) | Bind a doctype event to a payload and destinations. |
+| [Message Templates](concepts/message-templates.md) | Jinja → JSON payloads, schema validation, preview. |
+| [Destinations](concepts/destinations.md) | Where messages go; priority, headers, routing keys. |
+| [The Outbox](concepts/outbox.md) | Durability, statuses, the worker, double-delivery safety. |
+| [Retry and Replay](concepts/retry-and-replay.md) | Backoff, dead-lettering, replay, retention. |
+| [Providers](concepts/providers.md) | The registry and the publish interface. |
 
-## Settings
+## Reference
 
-*Event Bus Settings* (single doctype): enable/disable the bus, max publish attempts, retry backoff seconds, worker batch size, delivery-logging toggle, retention days.
+| | |
+|---|---|
+| [Settings](reference/settings.md) | Every Event Bus Settings field and scheduled job. |
+| [API](reference/api.md) | The six whitelisted methods. |
 
-**Retention** — a daily scheduled job deletes outbox messages (and their delivery attempts) older than *retention days*, but only in the succeeded states `Published` and `Cancelled`. Failed, Dead Lettered and Retry Scheduled messages are kept regardless of age, so retention never destroys the evidence you need to debug a delivery problem. Set it to `0` to disable purging entirely.
+## Examples
 
-**Priority** — each destination row on a rule carries a *priority*. It is copied onto the outbox message, and the worker publishes in ascending order (lower number first), falling back to creation order for ties.
-
-## Providers
-
-The core is broker-agnostic. Install a provider app and it registers itself via the `event_bus_providers` hook:
-
-- [RabbitMQ](https://github.com/wizardlabz/frappe-event-bus-rabbitmq)
-- Kafka, NATS — planned.
+[Example integrations](examples.md) — complete, ready-to-import rules and templates.
 
 ## Development
 
-- [Provider interface](development/provider-interface.md) — the contract every provider implements (`publish`, `test_publish`, `validate_connection`, `validate_destination`) and the normalized message/result shapes.
-- [Template authoring & form layout](development/template-authoring-design.md) — design for the doctype-aware template field picker (`Insert from DocType`), optional `applies_to_doctype` binding, and tabbed form layouts.
+| | |
+|---|---|
+| [Provider interface](development/provider-interface.md) | The contract every provider implements. |
+| [Writing a provider](development/writing-a-provider.md) | Build a provider app from scratch. |
+| [Template authoring design](development/template-authoring-design.md) | Why the field picker and preview work the way they do. |
+| [Contributing](development/contributing.md) | Tests, linting, commit conventions. |
+
+## How it fits together
+
+```
+Frappe / ERPNext document event
+        ↓
+   Event Bus Rule   →  condition  →  Message Template rendered once
+        ↓
+   One Outbox Message per destination        (durable, isolated)
+        ↓
+   Background worker  →  provider.publish()  →  broker
+        ↓
+   Delivery Attempt  ·  retry with backoff  ·  replay
+```
+
+The core owns rules, templates, the outbox, delivery logging, retry, replay, and the provider registry. It never imports a broker library. Each provider is a separate Frappe app contributing its own connection and destination doctypes.
+
+## Scope today
+
+This is the **publisher**: Frappe → broker. Version 0.1 covers rules, templates, the outbox, retry, replay, retention, and the RabbitMQ provider.
+
+Consuming — broker → Frappe, via an Inbox mirroring the Outbox — is designed but not built. It is v0.3. Nothing in this documentation describes consumer behaviour, because none exists yet.
 
 ---
 

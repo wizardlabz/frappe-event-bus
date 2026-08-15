@@ -14,7 +14,9 @@ If you have used **ERPNext Webhooks**, this should feel familiar: you configure 
 
 ## Status
 
-**v0.1 — MVP implemented and tested.** The rule engine, message templates, per-destination outbox, background publisher, retry/replay, test-publish, and the provider registry are built and covered by an automated suite (33 passing tests). The [RabbitMQ provider](https://github.com/wizardlabz/frappe-event-bus-rabbitmq) is available separately. APIs may still change before 1.0.
+**v0.1 — MVP implemented and tested.** The rule engine, message templates, per-destination outbox, background publisher, retry/replay, retention, test-publish, and the provider registry are built and covered by an automated suite (74 passing tests). The [RabbitMQ provider](https://github.com/wizardlabz/frappe-event-bus-rabbitmq) is available separately. APIs may still change before 1.0.
+
+Full documentation is in [`docs/`](docs/index.md).
 
 ### What's implemented
 
