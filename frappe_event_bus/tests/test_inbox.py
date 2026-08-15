@@ -133,3 +133,13 @@ class TestPersistMessage(FrappeTestCase):
 		row = persist_message(self.consumer, message)
 		self.assertEqual(row.payload, "not json at all")
 		self.assertEqual(row.status, "Received")
+
+	def test_the_ordering_key_defaults_to_the_deduplication_key(self):
+		row = persist_message(self.consumer, _incoming())
+		self.assertEqual(row.ordering_key, "SO-1")
+
+	def test_an_unresolvable_ordering_key_falls_back_to_the_deduplication_key(self):
+		"""A half-rendered ordering key would group unrelated messages together."""
+		self.consumer.ordering_key_expression = "{{ payload.missing }}"
+		row = persist_message(self.consumer, _incoming())
+		self.assertEqual(row.ordering_key, "SO-1")

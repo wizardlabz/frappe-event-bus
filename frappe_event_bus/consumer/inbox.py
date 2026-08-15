@@ -32,6 +32,22 @@ from frappe_event_bus.consumer.detection import detect_message_type
 _UNRESOLVED_EXPRESSION_RE = re.compile(r"\{\{.*?\}\}")
 
 
+def _plain(value: Any) -> dict[str, Any]:
+	"""Strip a frappe._dict down to a plain dict before it reaches Jinja.
+
+	frappe.parse_json wraps a decoded object in frappe._dict, whose
+	``__getattr__`` is ``dict.get`` — a missing key returns ``None`` instead of
+	raising ``AttributeError``. Jinja's dot lookup only falls through to
+	``__getitem__`` (and from there to Undefined) when attribute access
+	raises, so "{{ payload.missing }}" against a frappe._dict renders the
+	literal text "None" and never reaches DebugUndefined at all — the
+	``_UNRESOLVED_EXPRESSION_RE`` check above cannot see a failure that never
+	produced "{{ ... }}" text. A plain dict has no such __getattr__, so the
+	same lookup raises through to Undefined as expected.
+	"""
+	return dict(value or {})
+
+
 def persist_message(consumer: Any, message: dict[str, Any]) -> Document:
 	"""Write ``message`` to the Inbox, as Received or as an Ignored duplicate."""
 	dedup_key = compute_dedup_key(consumer, message)
@@ -91,8 +107,8 @@ def _ordering_key(consumer: Any, message: dict[str, Any], dedup_key: str) -> str
 		rendered = frappe.render_template(
 			expression,
 			{
-				"payload": message.get("payload") or {},
-				"headers": message.get("headers") or {},
+				"payload": _plain(message.get("payload")),
+				"headers": _plain(message.get("headers")),
 				"consumer": consumer,
 			},
 		).strip()
