@@ -57,6 +57,8 @@ class FakeConsumeSession:
 		return taken
 
 	def ack(self, message: dict[str, Any]) -> None:
+		if frappe.flags.get("fake_consume_ack_raises"):
+			raise RuntimeError("simulated crash before ack")
 		frappe.flags.setdefault("fake_consume_acked", []).append(message)
 
 	def reject(self, message: dict[str, Any], requeue: bool = False) -> None:
@@ -90,3 +92,4 @@ def register_fake_consume_provider(contract: str = "per_message") -> None:
 	frappe.flags.fake_consume_queue = []
 	frappe.flags.fake_consume_acked = []
 	frappe.flags.fake_consume_rejected = []
+	frappe.flags.fake_consume_ack_raises = False

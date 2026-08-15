@@ -125,6 +125,33 @@ class TestDueAndClaim(FrappeTestCase):
 		consumer.db_set("claimed_at", add_to_date(now_datetime(), seconds=-3600))
 		self.assertTrue(cw.claim_consumer(consumer.name))
 
+	def test_claim_returns_false_when_the_row_is_locked(self):
+		"""The claim itself swallows the deadlock rather than propagating it.
+
+		Two workers overlapping on the same consumer is exactly the case
+		claiming exists for, so losing that race must not surface as an error.
+		"""
+		consumer = _make_consumer()
+
+		original_sql = frappe.db.sql
+
+		def deadlocking_sql(query, *args, **kwargs):
+			# Matched on the statement shape, not its text: the claim is built
+			# by the query builder, which chooses its own quoting and
+			# parameterizes values, so neither the spacing nor the literal
+			# claimed_at value is ours to predict. Only the claim runs after
+			# this patch is installed.
+			text = str(query)
+			if "UPDATE" in text and "Event Bus Consumer" in text:
+				raise frappe.QueryDeadlockError("Deadlock found when trying to get lock")
+			return original_sql(query, *args, **kwargs)
+
+		frappe.db.sql = deadlocking_sql
+		try:
+			self.assertFalse(cw.claim_consumer(consumer.name))
+		finally:
+			frappe.db.sql = original_sql
+
 
 class TestPollCycle(FrappeTestCase):
 	def setUp(self):
@@ -160,27 +187,46 @@ class TestPollCycle(FrappeTestCase):
 		self.assertEqual(counts["received"], 0)
 		self.assertEqual([m["provider_message_id"] for m in take_rejected()], ["big"])
 
-	def test_a_redelivered_message_is_ignored_on_the_second_poll(self):
-		"""The correctness claim: an unacked-but-stored message stays stored once."""
+	def test_a_message_committed_but_never_acked_is_ignored_on_redelivery(self):
+		"""The ordering rule: persistence survives a crash before the ack.
+
+		If the ack were sent before the commit, a failure at this point would
+		leave nothing stored and the message would be lost.
+		"""
 		consumer = _make_consumer(enabled=1)
 		body = '{"n": 7}'
 		queue_messages([{"payload_raw": body, "provider_message_id": "m1"}])
-		cw.poll_consumer(consumer.name)
 
-		# The broker never saw our ack, so it delivers the same body again.
+		# Simulate dying between commit and acknowledgement.
+		frappe.flags.fake_consume_ack_raises = True
+		try:
+			with self.assertRaises(RuntimeError):
+				cw.poll_consumer(consumer.name)
+		finally:
+			frappe.flags.fake_consume_ack_raises = False
+
+		# The row is there despite the ack never landing — that is the proof.
+		rows = frappe.get_all(
+			"Event Bus Inbox Message",
+			filters={"consumer": consumer.name},
+			fields=["name", "status"],
+		)
+		self.assertEqual([r.status for r in rows], ["Received"])
+
+		# The broker, never having been acked, delivers it again.
 		queue_messages([{"payload_raw": body, "provider_message_id": "m1"}])
 		counts = cw.poll_consumer(consumer.name)
 
 		self.assertEqual(counts["ignored"], 1)
 		self.assertEqual(counts["received"], 0)
-		rows = frappe.get_all(
+		after = frappe.get_all(
 			"Event Bus Inbox Message",
 			filters={"consumer": consumer.name},
 			fields=["status", "duplicate_of"],
 			order_by="creation asc",
 		)
-		self.assertEqual([r.status for r in rows], ["Received", "Ignored"])
-		self.assertIsNotNone(rows[1].duplicate_of)
+		self.assertEqual([r.status for r in after], ["Received", "Ignored"])
+		self.assertEqual(after[1].duplicate_of, rows[0].name)
 
 	def test_the_dispatcher_skips_disabled_consumers(self):
 		_make_consumer(enabled=0)

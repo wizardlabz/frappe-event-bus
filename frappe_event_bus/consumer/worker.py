@@ -32,12 +32,18 @@ def claim_consumer(name: str) -> bool:
 	interval = frappe.db.get_value("Event Bus Consumer", name, "poll_interval") or 60
 	stale_before = add_to_date(now, seconds=-STALE_CLAIM_INTERVALS * int(interval))
 
-	(
-		frappe.qb.update(consumer)
-		.set(consumer.claimed_at, now)
-		.where(consumer.name == name)
-		.where(consumer.claimed_at.isnull() | (consumer.claimed_at < stale_before))
-	).run()
+	try:
+		(
+			frappe.qb.update(consumer)
+			.set(consumer.claimed_at, now)
+			.where(consumer.name == name)
+			.where(consumer.claimed_at.isnull() | (consumer.claimed_at < stale_before))
+		).run()
+	except (frappe.QueryDeadlockError, frappe.QueryTimeoutError):
+		# Another worker holds the row lock and InnoDB picked us as the victim.
+		# Losing the race is the same outcome as losing it cleanly: skip the
+		# consumer and let the winner poll it.
+		return False
 
 	return frappe.db._cursor.rowcount == 1
 
