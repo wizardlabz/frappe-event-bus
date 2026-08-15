@@ -86,3 +86,18 @@ class TestDedupKey(FrappeTestCase):
 			payload=frappe.parse_json('{"order_id": "SO-2"}'), payload_raw='{"order_id": "SO-2"}'
 		)
 		self.assertNotEqual(compute_dedup_key(consumer, first), compute_dedup_key(consumer, second))
+
+	def test_a_json_string_payload_falls_back_to_the_payload_hash(self):
+		"""A broker may publish valid JSON that is not an object."""
+		raw = '"just a string"'
+		expected = hashlib.sha256(raw.encode()).hexdigest()
+		message = _message(payload=frappe.parse_json(raw), payload_raw=raw)
+		consumer = _consumer("Custom Expression", "{{ payload.order_id }}")
+		self.assertEqual(compute_dedup_key(consumer, message), expected)
+
+	def test_a_json_array_payload_falls_back_to_the_payload_hash(self):
+		raw = "[1, 2, 3]"
+		expected = hashlib.sha256(raw.encode()).hexdigest()
+		message = _message(payload=frappe.parse_json(raw), payload_raw=raw)
+		consumer = _consumer("Custom Expression", "{{ payload.order_id }}")
+		self.assertEqual(compute_dedup_key(consumer, message), expected)

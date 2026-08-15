@@ -65,14 +65,18 @@ def render_key_expression(
 	if not expression:
 		return None
 
-	context = {
-		"payload": _plain(payload),
-		"headers": _plain(headers),
-		"consumer": consumer,
-	}
 	try:
+		context = {
+			"payload": _plain(payload),
+			"headers": _plain(headers),
+			"consumer": consumer,
+		}
 		rendered = frappe.render_template(expression, context).strip()
 	except Exception:
+		# Covers both a template error and _plain() rejecting a payload that
+		# parsed as valid JSON but isn't a mapping (e.g. a bare string or a
+		# list) — a broker is free to publish either, and neither is a reason
+		# to raise out of a pure key-computation helper.
 		frappe.log_error(
 			title="Event Bus: key expression failed to render",
 			message=frappe.get_traceback(),
