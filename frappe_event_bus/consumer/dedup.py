@@ -5,6 +5,10 @@ Deliberately free of doctype and database coupling so it unit-tests directly.
 Every strategy falls back to the payload hash when it cannot produce a key. A
 null or empty key would disable deduplication for that message, and redelivery
 is normal operation in this design — so there is no safe way to fail open.
+
+"Cannot produce a key" includes a payload that is valid JSON but not an object:
+a broker may publish ``[1, 2, 3]`` or ``"hello"``, and neither has a named field
+to read. ``as_mapping`` is the single shared guard for that.
 """
 
 from __future__ import annotations
@@ -12,7 +16,7 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
-from frappe_event_bus.consumer.expressions import render_key_expression
+from frappe_event_bus.consumer.expressions import as_mapping, render_key_expression
 
 
 def payload_hash(message: dict[str, Any]) -> str:
@@ -28,9 +32,9 @@ def compute_dedup_key(consumer: Any, message: dict[str, Any]) -> str:
 	if strategy == "External Message ID":
 		candidate = message.get("provider_message_id")
 	elif strategy == "Header Value":
-		candidate = (message.get("headers") or {}).get(expression)
+		candidate = as_mapping(message.get("headers")).get(expression)
 	elif strategy == "Payload Field":
-		candidate = (message.get("payload") or {}).get(expression)
+		candidate = as_mapping(message.get("payload")).get(expression)
 	elif strategy == "Custom Expression":
 		candidate = render_key_expression(
 			expression, message.get("payload"), message.get("headers"), consumer

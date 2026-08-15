@@ -12,6 +12,9 @@ bugs in this app:
 
 Either would yield a key that is identical across unrelated messages. This
 module is the single place that knows about both.
+
+It also owns :func:`as_mapping`, the one guard every consumer module uses
+before treating a decoded payload or header set as a mapping.
 """
 
 from __future__ import annotations
@@ -20,6 +23,7 @@ import re
 from typing import Any
 
 import frappe
+import jinja2
 
 #: A rendered key must contain no residual Jinja. frappe.render_template uses
 #: jinja2.DebugUndefined, which stringifies an unresolved variable as
@@ -30,20 +34,32 @@ import frappe
 _UNRESOLVED_EXPRESSION_RE = re.compile(r"\{\{.*?\}\}")
 
 
-def _plain(value: Any) -> dict[str, Any]:
-	"""Strip a frappe._dict down to a plain dict before it reaches Jinja.
+def as_mapping(value: Any) -> dict[str, Any]:
+	"""Coerce a decoded payload or header set to a plain, safe-to-``.get()`` dict.
 
-	frappe.parse_json wraps a decoded object in frappe._dict, whose
-	``__getattr__`` is ``dict.get`` — a missing key returns ``None`` instead of
-	raising ``AttributeError``. Jinja's dot lookup only falls through to
-	``__getitem__`` (and from there to Undefined) when attribute access
-	raises, so "{{ payload.missing }}" against a frappe._dict renders the
-	literal text "None" and never reaches DebugUndefined at all — the
+	Two jobs, both of which have produced real bugs:
+
+	*Anything that is not a mapping becomes an empty dict.* ``frappe.parse_json``
+	returns whatever the JSON decodes to, and a broker is free to publish a
+	document that is valid JSON but not an object — ``'[1, 2, 3]'`` decodes to a
+	``list``, ``'"hello"'`` to a ``str``. Neither has ``.get``, so every caller
+	that reached for a named field on the raw result raised ``AttributeError``
+	and made the message permanently unpersistable. An absent field and a
+	payload with no fields at all are the same answer to the caller: no value.
+
+	*A frappe._dict is stripped down to a plain dict.* ``frappe._dict.__getattr__``
+	is ``dict.get``, so a missing key returns ``None`` instead of raising
+	``AttributeError``. Jinja's dot lookup only falls through to ``__getitem__``
+	(and from there to Undefined) when attribute access raises, so
+	"{{ payload.missing }}" against a frappe._dict renders the literal text
+	"None" and never reaches DebugUndefined at all — the
 	``_UNRESOLVED_EXPRESSION_RE`` check above cannot see a failure that never
-	produced "{{ ... }}" text. A plain dict has no such __getattr__, so the
-	same lookup raises through to Undefined as expected.
+	produced "{{ ... }}" text. A plain dict has no such __getattr__, so the same
+	lookup raises through to Undefined as expected.
 	"""
-	return dict(value or {})
+	if not isinstance(value, dict):
+		return {}
+	return dict(value)
 
 
 def render_key_expression(
@@ -67,20 +83,24 @@ def render_key_expression(
 
 	try:
 		context = {
-			"payload": _plain(payload),
-			"headers": _plain(headers),
+			"payload": as_mapping(payload),
+			"headers": as_mapping(headers),
 			"consumer": consumer,
 		}
 		rendered = frappe.render_template(expression, context).strip()
-	except Exception:
-		# Covers both a template error and _plain() rejecting a payload that
-		# parsed as valid JSON but isn't a mapping (e.g. a bare string or a
-		# list) — a broker is free to publish either, and neither is a reason
-		# to raise out of a pure key-computation helper.
+	except jinja2.TemplateSyntaxError:
+		# A malformed template is an operator's configuration error, not a
+		# property of the message, so it is the one render failure worth
+		# reporting from here. Everything else — including a payload that
+		# parsed as valid JSON but isn't a mapping, which as_mapping() now
+		# absorbs into an empty context rather than an exception — is a normal
+		# per-message outcome that must not write an Error Log row per message.
 		frappe.log_error(
-			title="Event Bus: key expression failed to render",
+			title="Event Bus: key expression is not valid Jinja",
 			message=frappe.get_traceback(),
 		)
+		return None
+	except Exception:
 		return None
 
 	if not rendered or _UNRESOLVED_EXPRESSION_RE.search(rendered):

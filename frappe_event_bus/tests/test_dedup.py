@@ -101,3 +101,33 @@ class TestDedupKey(FrappeTestCase):
 		message = _message(payload=frappe.parse_json(raw), payload_raw=raw)
 		consumer = _consumer("Custom Expression", "{{ payload.order_id }}")
 		self.assertEqual(compute_dedup_key(consumer, message), expected)
+
+	def test_payload_field_survives_a_json_array_payload(self):
+		"""Payload Field reads a named field, and a list has none.
+
+		This is the default-configuration case: frappe.parse_json returns a
+		plain list for '[1, 2, 3]', which has no .get at all.
+		"""
+		raw = "[1, 2, 3]"
+		expected = hashlib.sha256(raw.encode()).hexdigest()
+		message = _message(payload=frappe.parse_json(raw), payload_raw=raw)
+		self.assertEqual(compute_dedup_key(_consumer("Payload Field", "order_id"), message), expected)
+
+	def test_payload_field_survives_a_bare_string_payload(self):
+		raw = '"hello"'
+		expected = hashlib.sha256(raw.encode()).hexdigest()
+		message = _message(payload=frappe.parse_json(raw), payload_raw=raw)
+		self.assertEqual(compute_dedup_key(_consumer("Payload Field", "order_id"), message), expected)
+
+	def test_header_value_survives_a_non_mapping_header_set(self):
+		"""Headers arrive from the provider and are not guaranteed to be a map."""
+		raw = '{"order_id": "SO-1"}'
+		expected = hashlib.sha256(raw.encode()).hexdigest()
+		message = _message(headers=frappe.parse_json("[1, 2, 3]"), payload_raw=raw)
+		self.assertEqual(compute_dedup_key(_consumer("Header Value", "x-id"), message), expected)
+
+	def test_header_value_survives_a_bare_string_header_set(self):
+		raw = '{"order_id": "SO-1"}'
+		expected = hashlib.sha256(raw.encode()).hexdigest()
+		message = _message(headers=frappe.parse_json('"hello"'), payload_raw=raw)
+		self.assertEqual(compute_dedup_key(_consumer("Header Value", "x-id"), message), expected)
