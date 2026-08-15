@@ -10,7 +10,22 @@ Sections used: **Added**, **Changed**, **Deprecated**, **Removed**, **Fixed**, *
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+**Consumer ingestion (broker → Frappe, Phase A)**
+
+- **Event Bus Consumer** — a configured subscription to one source on one broker connection. Ships with `enabled = 0`; nothing is polled until a consumer is switched on by hand.
+- **Dispatcher** — a `* * * * *` cron entry polls every enabled consumer whose own `poll_interval` has elapsed, claiming it with a single conditional `UPDATE` so an overrunning cycle cannot poll the same consumer concurrently. A stale claim (older than three poll intervals) can be taken over, so a worker killed mid-cycle cannot strand its consumer.
+- **Inbox persistence** — accepted messages are committed to the **Event Bus Inbox Message** table *before* any of them are acknowledged back to the broker. A crash in between means the broker redelivers a message already stored; deduplication records the redelivery as `Ignored` rather than losing or double-storing it. Redelivery is normal operation in this design, not a failure.
+- **Deduplication** — enforced by a unique index on `deduplication_key`, not a lookup-then-insert. Five strategies (`Payload Hash`, `External Message ID`, `Header Value`, `Payload Field`, `Custom Expression`), with `Payload Hash` as the default because it is the only strategy guaranteed to produce a key. Every strategy falls back to it when it cannot. Scope is global across the Inbox, not per consumer; a `Custom Expression` key can include `{{ consumer.name }}` to opt back into per-consumer scoping.
+- **Message-type detection** — four modes (`Payload Field`, `Header`, `Routing Key`, `Fixed`) fill in `message_type` on each Inbox row; an undetectable type is left blank rather than rejecting the message.
+- **Oversized-message handling** — messages over `max_payload_bytes` (1 MiB default) are rejected from the broker without requeue and never reach the Inbox.
+
+### Notes and limitations
+
+- **Messages are persisted and nothing acts on them.** No handler runs, and no ERPNext document is created or modified by this feature — that is the entire scope of this phase. Of the seven statuses declared on the Inbox, only `Received` and `Ignored` are ever set; `Processing`, `Processed`, `Retry Scheduled`, `Failed`, and `Dead Lettered` exist on the schema for a later processing phase.
+- **`Dedicated Worker` consumption mode is rejected.** The field offers it alongside `Scheduled Polling`, but saving a consumer with it throws — only polling is implemented.
+- **No live broker implementation ships in this repo.** The consume contract (`ConsumeSession`, `per_message` acknowledgement) is defined here, but no provider app implements it yet; polling is exercised in tests against an in-memory fake provider only.
 
 ---
 
