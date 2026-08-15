@@ -45,6 +45,34 @@ class TestConsumerDocType(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			_make_consumer(consumption_mode="Dedicated Worker")
 
+	def test_a_key_strategy_without_an_expression_is_rejected(self):
+		"""Blank, these strategies silently deduplicate on the body instead.
+
+		They would look up the empty string, find nothing, and fall back to the
+		payload hash — and under the Inbox's global deduplication scope two
+		distinct messages with identical bodies (a repeated heartbeat) then
+		collide and the second is discarded.
+		"""
+		for strategy in ("Header Value", "Payload Field", "Custom Expression"):
+			with self.subTest(strategy=strategy):
+				frappe.delete_doc_if_exists("Event Bus Consumer", CONSUMER, force=1)
+				with self.assertRaises(frappe.ValidationError):
+					_make_consumer(deduplication_strategy=strategy)
+
+	def test_a_key_strategy_with_an_expression_is_accepted(self):
+		consumer = _make_consumer(
+			deduplication_strategy="Payload Field",
+			deduplication_key_expression="order_id",
+		)
+		self.assertEqual(consumer.deduplication_key_expression, "order_id")
+
+	def test_the_keyless_strategies_need_no_expression(self):
+		for strategy in ("Payload Hash", "External Message ID"):
+			with self.subTest(strategy=strategy):
+				frappe.delete_doc_if_exists("Event Bus Consumer", CONSUMER, force=1)
+				consumer = _make_consumer(deduplication_strategy=strategy)
+				self.assertEqual(consumer.deduplication_strategy, strategy)
+
 
 from frappe_event_bus.consumer.contract import open_consume_session
 from frappe_event_bus.tests.fake_consume_provider import (
