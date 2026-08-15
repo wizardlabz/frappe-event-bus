@@ -24,6 +24,22 @@ import frappe
 _UNRESOLVED_EXPRESSION_RE = re.compile(r"\{\{.*?\}\}")
 
 
+def _plain(value: Any) -> dict[str, Any]:
+	"""Strip a frappe._dict down to a plain dict before it reaches Jinja.
+
+	frappe.parse_json wraps a decoded object in frappe._dict, whose
+	``__getattr__`` is ``dict.get`` — a missing key returns ``None`` instead of
+	raising ``AttributeError``. Jinja's dot lookup only falls through to
+	``__getitem__`` (and from there to Undefined) when attribute access
+	raises, so "{{ payload.missing }}" against a frappe._dict renders the
+	literal text "None" and never reaches DebugUndefined at all — the
+	``_UNRESOLVED_EXPRESSION_RE`` check above cannot see a failure that never
+	produced "{{ ... }}" text. A plain dict has no such __getattr__, so the
+	same lookup raises through to Undefined as expected.
+	"""
+	return dict(value or {})
+
+
 def payload_hash(message: dict[str, Any]) -> str:
 	"""SHA-256 of the exact received body."""
 	return hashlib.sha256((message.get("payload_raw") or "").encode()).hexdigest()
@@ -54,8 +70,8 @@ def _render_expression(expression: str, consumer: Any, message: dict[str, Any]) 
 	if not expression:
 		return None
 	context = {
-		"payload": message.get("payload") or {},
-		"headers": message.get("headers") or {},
+		"payload": _plain(message.get("payload")),
+		"headers": _plain(message.get("headers")),
 		"consumer": consumer,
 	}
 	try:

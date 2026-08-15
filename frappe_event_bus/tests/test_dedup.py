@@ -67,3 +67,22 @@ class TestDedupKey(FrappeTestCase):
 		expected = hashlib.sha256('{"order_id": "SO-1"}'.encode()).hexdigest()
 		consumer = _consumer("Custom Expression", "{{ consumer.name }}-{{ payload.missing }}")
 		self.assertEqual(compute_dedup_key(consumer, _message()), expected)
+
+	def test_a_missing_field_in_a_dict_payload_falls_back_to_the_payload_hash(self):
+		"""frappe._dict returns None for a missing key rather than raising."""
+		raw = '{"order_id": "SO-1"}'
+		expected = hashlib.sha256(raw.encode()).hexdigest()
+		message = _message(payload=frappe.parse_json(raw), payload_raw=raw)
+		consumer = _consumer("Custom Expression", "{{ payload.missing }}")
+		self.assertEqual(compute_dedup_key(consumer, message), expected)
+
+	def test_two_messages_missing_the_same_field_do_not_collide(self):
+		"""The failure that makes this critical: identical keys discard traffic."""
+		consumer = _consumer("Custom Expression", "{{ payload.missing }}")
+		first = _message(
+			payload=frappe.parse_json('{"order_id": "SO-1"}'), payload_raw='{"order_id": "SO-1"}'
+		)
+		second = _message(
+			payload=frappe.parse_json('{"order_id": "SO-2"}'), payload_raw='{"order_id": "SO-2"}'
+		)
+		self.assertNotEqual(compute_dedup_key(consumer, first), compute_dedup_key(consumer, second))
