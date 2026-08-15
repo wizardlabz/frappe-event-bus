@@ -359,7 +359,12 @@ class TestConcurrentWorkerContention(FrappeTestCase):
 		original_sql = frappe.db.sql
 
 		def deadlocking_sql(query, *args, **kwargs):
-			if "SET status = 'Publishing'" in str(query):
+			# Matched on the statement shape, not its text: the claim is built by
+			# the query builder, which chooses its own quoting and parameterizes
+			# values, so neither the spacing nor the literal 'Publishing' is ours
+			# to predict. Only the claim runs after this patch is installed.
+			text = str(query)
+			if "UPDATE" in text and "Event Bus Outbox Message" in text:
 				raise frappe.QueryDeadlockError("Deadlock found when trying to get lock")
 			return original_sql(query, *args, **kwargs)
 

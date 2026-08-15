@@ -102,15 +102,14 @@ def _claim_message(name: str) -> bool:
 	Returns:
 		True if this worker claimed the row, False if another worker already had it.
 	"""
+	outbox = frappe.qb.DocType("Event Bus Outbox Message")
 	try:
-		frappe.db.sql(
-			"""
-			UPDATE `tabEvent Bus Outbox Message`
-			SET status = 'Publishing'
-			WHERE name = %s AND status IN ('Pending', 'Retry Scheduled')
-			""",
-			name,
-		)
+		(
+			frappe.qb.update(outbox)
+			.set(outbox.status, "Publishing")
+			.where(outbox.name == name)
+			.where(outbox.status.isin(list(DUE_STATUSES)))
+		).run()
 	except (frappe.QueryDeadlockError, frappe.QueryTimeoutError):
 		# Another worker holds the row lock and InnoDB picked us as the victim.
 		# Losing the race is the same outcome as losing it cleanly: skip the
