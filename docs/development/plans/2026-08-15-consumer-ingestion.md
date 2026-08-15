@@ -986,6 +986,10 @@ def persist_message(consumer: Any, message: dict[str, Any]) -> Document:
 	dedup_key = compute_dedup_key(consumer, message)
 	values = _row_values(consumer, message, dedup_key)
 
+	# Own savepoint: a failed unique insert must be rolled back before the
+	# retry insert, and this function is called directly (by tests and by the
+	# poll loop alike), so it cannot rely on a caller having opened one.
+	frappe.db.savepoint("eb_inbox_dedup")
 	try:
 		return frappe.get_doc(values).insert(ignore_permissions=True)
 	except (frappe.UniqueValidationError, frappe.DuplicateEntryError):
@@ -1052,7 +1056,7 @@ def _ordering_key(consumer: Any, message: dict[str, Any], dedup_key: str) -> str
 	return rendered or dedup_key
 ```
 
-Note the `frappe.db.rollback(save_point="eb_inbox_dedup")` call — the poll loop in Task 8 opens that savepoint before each message, so a failed insert does not poison the transaction for the retry insert.
+`persist_message` opens and rolls back its own `eb_inbox_dedup` savepoint. It must not rely on a caller having opened one — the tests above call it directly, and a rollback to a savepoint that does not exist is an error. Task 8's poll loop wraps it in a separately named savepoint for unrelated persist failures.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -1326,11 +1330,13 @@ def poll_consumer(name: str) -> dict[str, int]:
 			if _too_large(consumer, message):
 				rejected.append(message)
 				continue
-			frappe.db.savepoint("eb_inbox_dedup")
+			# Distinct name from persist_message's own savepoint, which nests
+			# inside this one.
+			frappe.db.savepoint("eb_inbox_msg")
 			try:
 				row = persist_message(consumer, message)
 			except Exception:
-				frappe.db.rollback(save_point="eb_inbox_dedup")
+				frappe.db.rollback(save_point="eb_inbox_msg")
 				frappe.log_error(
 					title="Event Bus: inbox persist failed",
 					message=frappe.get_traceback(),
