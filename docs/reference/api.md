@@ -2,16 +2,27 @@
 
 Six whitelisted methods. They exist to serve the desk UI, but they are callable from any Frappe API client.
 
-| Method | Dotted path | Role check |
+| Method | Dotted path | Permission required |
 |---|---|---|
-| `test_publish` | `frappe_event_bus.api.test_publish` | System Manager |
-| `get_field_tree` | `frappe_event_bus.api.get_field_tree` | System Manager |
-| `generate_template` | `frappe_event_bus.api.generate_template` | System Manager |
-| `preview_payload` | `frappe_event_bus.api.preview_payload` | none |
-| `replay_outbox_message` | `frappe_event_bus.publisher.replay.replay_outbox_message` | none |
-| `render_example_output` | `...doctype.event_bus_message_template.event_bus_message_template.render_example_output` | none |
+| `test_publish` | `frappe_event_bus.api.test_publish` | read on the provider connection **and** destination |
+| `get_field_tree` | `frappe_event_bus.api.get_field_tree` | write on Event Bus Message Template |
+| `generate_template` | `frappe_event_bus.api.generate_template` | write on Event Bus Message Template |
+| `preview_payload` | `frappe_event_bus.api.preview_payload` | read on the template, **and** read on the reference document |
+| `replay_outbox_message` | `frappe_event_bus.publisher.replay.replay_outbox_message` | write on the outbox message |
+| `render_example_output` | `...doctype.event_bus_message_template.event_bus_message_template.render_example_output` | read on the template |
 
-> **Note on permissions.** Only the first three call `frappe.only_for("System Manager")`. The other three rely on Frappe's standard doctype permissions, which for a whitelisted function is a weaker guarantee than an explicit role check. If you expose this site's API to semi-trusted users, review these three before doing so. Tightening them is tracked for v0.2 hardening.
+## How authorization works
+
+`@frappe.whitelist()` exposes a function to every authenticated user over `/api/method/...`, regardless of what the desk chooses to render. Hiding a button is not access control, so each endpoint checks permission itself.
+
+Checks go through `frappe.has_permission` against the doctype the endpoint actually touches, rather than a hardcoded role. Your permission model stays authoritative: grant a custom role access to the Event Bus doctypes and the API follows automatically, with no code change.
+
+Two consequences worth knowing:
+
+- **Access to a template does not confer access to the data it renders.** `preview_payload` takes a caller-supplied `reference_doctype` and `reference_name`, so it verifies read permission on that specific document before rendering it. Being allowed to read a template is not permission to read every document you could point it at.
+- **`test_publish` checks the connection it resolves to, not just the destination.** A caller cannot reach a connection indirectly through a destination they happen to be able to see.
+
+Because these are document-level checks, User Permissions apply — a role with blanket read on a doctype can still be restricted to particular documents, and these endpoints honour that.
 
 ---
 

@@ -42,6 +42,16 @@ Two conventions the existing suite follows, both learned from CI failures:
 
 Creating a DocType is DDL, which commits implicitly and escapes `FrappeTestCase`'s per-test rollback. Build such fixtures in `setUpClass` and remove them in `tearDownClass`.
 
+**Guard whitelisted endpoints with `frappe.has_permission`, not `frappe.only_for`.** `only_for` returns early whenever `frappe.flags.in_test` is set:
+
+```python
+def only_for(roles, message=False):
+    if local.flags.in_test or local.session.user == "Administrator":
+        return
+```
+
+A guard written that way cannot be tested — the test passes whether or not the guard is there. `has_permission` has no such bypass, and checking against the doctype rather than a role keeps a site's own permission model authoritative.
+
 ## Commits
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/):
