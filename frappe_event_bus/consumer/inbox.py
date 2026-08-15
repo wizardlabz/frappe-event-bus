@@ -12,7 +12,6 @@ NULL, so many duplicates coexist while originals stay unique.
 from __future__ import annotations
 
 import json
-import re
 from typing import Any
 
 import frappe
@@ -21,31 +20,7 @@ from frappe.utils import now_datetime
 
 from frappe_event_bus.consumer.dedup import compute_dedup_key
 from frappe_event_bus.consumer.detection import detect_message_type
-
-#: A rendered ordering key must contain no residual Jinja. frappe.render_template
-#: uses jinja2.DebugUndefined, which stringifies an unresolved variable as
-#: "{{ no such element: ... }}" rather than raising, so a bare try/except around
-#: the render does not catch a missing field — it only catches template syntax
-#: errors. Any leftover "{{ ... }}" means the expression did not fully resolve,
-#: and the ordering key falls back to the deduplication key rather than storing
-#: that literal text.
-_UNRESOLVED_EXPRESSION_RE = re.compile(r"\{\{.*?\}\}")
-
-
-def _plain(value: Any) -> dict[str, Any]:
-	"""Strip a frappe._dict down to a plain dict before it reaches Jinja.
-
-	frappe.parse_json wraps a decoded object in frappe._dict, whose
-	``__getattr__`` is ``dict.get`` — a missing key returns ``None`` instead of
-	raising ``AttributeError``. Jinja's dot lookup only falls through to
-	``__getitem__`` (and from there to Undefined) when attribute access
-	raises, so "{{ payload.missing }}" against a frappe._dict renders the
-	literal text "None" and never reaches DebugUndefined at all — the
-	``_UNRESOLVED_EXPRESSION_RE`` check above cannot see a failure that never
-	produced "{{ ... }}" text. A plain dict has no such __getattr__, so the
-	same lookup raises through to Undefined as expected.
-	"""
-	return dict(value or {})
+from frappe_event_bus.consumer.expressions import render_key_expression
 
 
 def persist_message(consumer: Any, message: dict[str, Any]) -> Document:
@@ -100,25 +75,10 @@ def _ordering_key(consumer: Any, message: dict[str, Any], dedup_key: str) -> str
 
 	Stored but unused in this phase: the processing phase serializes on it.
 	"""
-	expression = (consumer.ordering_key_expression or "").strip()
-	if not expression:
-		return dedup_key
-	try:
-		rendered = frappe.render_template(
-			expression,
-			{
-				"payload": _plain(message.get("payload")),
-				"headers": _plain(message.get("headers")),
-				"consumer": consumer,
-			},
-		).strip()
-	except Exception:
-		frappe.log_error(
-			title="Event Bus: ordering key expression failed",
-			message=frappe.get_traceback(),
-		)
-		return dedup_key
-
-	if not rendered or _UNRESOLVED_EXPRESSION_RE.search(rendered):
-		return dedup_key
-	return rendered
+	rendered = render_key_expression(
+		consumer.ordering_key_expression,
+		message.get("payload"),
+		message.get("headers"),
+		consumer,
+	)
+	return rendered or dedup_key
