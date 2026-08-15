@@ -1,0 +1,212 @@
+{
+ "actions": [],
+ "autoname": "field:consumer_name",
+ "creation": "2026-08-15 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "consumer_name",
+  "enabled",
+  "column_break_main",
+  "provider",
+  "connection",
+  "section_break_source",
+  "source_type",
+  "source",
+  "column_break_source",
+  "consumption_mode",
+  "section_break_polling",
+  "batch_size",
+  "poll_interval",
+  "column_break_polling",
+  "last_polled_at",
+  "claimed_at",
+  "section_break_dedup",
+  "deduplication_strategy",
+  "deduplication_key_expression",
+  "column_break_dedup",
+  "ordering_key_expression",
+  "section_break_message",
+  "message_type_detection",
+  "message_type_source",
+  "column_break_message",
+  "max_payload_bytes",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "consumer_name",
+   "fieldtype": "Data",
+   "label": "Consumer Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "provider",
+   "fieldtype": "Data",
+   "label": "Provider",
+   "reqd": 1
+  },
+  {
+   "fieldname": "connection",
+   "fieldtype": "Data",
+   "label": "Connection",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_source",
+   "fieldtype": "Section Break",
+   "label": "Source"
+  },
+  {
+   "default": "RabbitMQ Queue",
+   "fieldname": "source_type",
+   "fieldtype": "Select",
+   "label": "Source Type",
+   "options": "RabbitMQ Queue\nKafka Topic\nNATS Subject\nRedis Stream"
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Data",
+   "label": "Source",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_source",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Scheduled Polling",
+   "fieldname": "consumption_mode",
+   "fieldtype": "Select",
+   "label": "Consumption Mode",
+   "options": "Scheduled Polling\nDedicated Worker"
+  },
+  {
+   "fieldname": "section_break_polling",
+   "fieldtype": "Section Break",
+   "label": "Polling"
+  },
+  {
+   "default": "25",
+   "fieldname": "batch_size",
+   "fieldtype": "Int",
+   "label": "Batch Size"
+  },
+  {
+   "default": "60",
+   "fieldname": "poll_interval",
+   "fieldtype": "Int",
+   "label": "Poll Interval (seconds)"
+  },
+  {
+   "fieldname": "column_break_polling",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_polled_at",
+   "fieldtype": "Datetime",
+   "label": "Last Polled At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "claimed_at",
+   "fieldtype": "Datetime",
+   "label": "Claimed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_dedup",
+   "fieldtype": "Section Break",
+   "label": "Deduplication"
+  },
+  {
+   "default": "Payload Hash",
+   "fieldname": "deduplication_strategy",
+   "fieldtype": "Select",
+   "label": "Deduplication Strategy",
+   "options": "Payload Hash\nExternal Message ID\nHeader Value\nPayload Field\nCustom Expression"
+  },
+  {
+   "fieldname": "deduplication_key_expression",
+   "fieldtype": "Small Text",
+   "label": "Deduplication Key Expression"
+  },
+  {
+   "fieldname": "column_break_dedup",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ordering_key_expression",
+   "fieldtype": "Small Text",
+   "label": "Ordering Key Expression"
+  },
+  {
+   "fieldname": "section_break_message",
+   "fieldtype": "Section Break",
+   "label": "Message"
+  },
+  {
+   "default": "Payload Field",
+   "fieldname": "message_type_detection",
+   "fieldtype": "Select",
+   "label": "Message Type Detection",
+   "options": "Payload Field\nHeader\nRouting Key\nFixed"
+  },
+  {
+   "default": "message_type",
+   "fieldname": "message_type_source",
+   "fieldtype": "Data",
+   "label": "Message Type Source"
+  },
+  {
+   "fieldname": "column_break_message",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1048576",
+   "fieldname": "max_payload_bytes",
+   "fieldtype": "Int",
+   "label": "Max Payload Bytes"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 0,
+ "links": [],
+ "modified": "2026-08-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Frappe Event Bus",
+ "name": "Event Bus Consumer",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
