@@ -314,18 +314,28 @@ class TestPollCycle(FrappeTestCase):
 		self.assertEqual(counts["ignored"], 0)
 		self.assertEqual(take_acked(), [])
 
-	def test_a_destroyed_savepoint_does_not_escape_the_poll(self):
-		"""Rolling back to a savepoint the database no longer has must not raise.
+	def test_a_destroyed_savepoint_abandons_the_batch_without_acknowledging(self):
+		"""A savepoint rollback that fails means the transaction is already gone.
 
-		Without the guard the rollback raises a second exception out of
-		poll_consumer, abandoning every message after the failed one — each of
-		which is then redelivered forever.
+		The savepoint can only be missing because something destroyed the
+		enclosing transaction — a dropped or reconnected connection, or
+		``persist_message``'s own inner rollback failing. Whatever destroyed it
+		also destroyed every row this batch persisted before the failure, so the
+		earlier messages are no longer in the database.
+
+		The failure is deliberately *not* a deadlock here: the deadlock branch
+		already abandons the batch, and the danger is the generic branch being
+		more permissive. m1 persists successfully first, so ``accepted`` is
+		non-empty when the savepoint disappears — acknowledging it would tell
+		the broker to forget a message nothing holds, and it would never be
+		redelivered.
 		"""
 		consumer = _make_consumer(enabled=1)
 		queue_messages(
 			[
 				{"payload_raw": '{"n": 1}', "provider_message_id": "m1"},
 				{"payload_raw": '{"n": 2}', "provider_message_id": "m2"},
+				{"payload_raw": '{"n": 3}', "provider_message_id": "m3"},
 			]
 		)
 
@@ -333,7 +343,8 @@ class TestPollCycle(FrappeTestCase):
 		original_rollback = frappe.db.rollback
 
 		def failing_persist(consumer_doc, message):
-			if message["provider_message_id"] == "m1":
+			# m1 lands first, so the batch has something to lose.
+			if message["provider_message_id"] == "m2":
 				raise RuntimeError("persist blew up")
 			return original_persist(consumer_doc, message)
 
@@ -350,9 +361,12 @@ class TestPollCycle(FrappeTestCase):
 			cw.persist_message = original_persist
 			frappe.db.rollback = original_rollback
 
-		# The second message still got through, which is the whole point.
-		self.assertEqual(counts["received"], 1)
-		self.assertEqual([m["provider_message_id"] for m in take_acked()], ["m2"])
+		# Nothing may be acknowledged: not m1, which the lost transaction took
+		# with it, and not m3, which the abandoned batch never reached.
+		self.assertEqual(take_acked(), [])
+		# An abandoned batch, not a partial success.
+		self.assertEqual(counts["received"], 0)
+		self.assertEqual(counts["ignored"], 0)
 
 	def test_the_dispatcher_skips_disabled_consumers(self):
 		_make_consumer(enabled=0)

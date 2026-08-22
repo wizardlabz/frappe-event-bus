@@ -110,9 +110,24 @@ def poll_consumer(name: str) -> dict[str, int]:
 				try:
 					frappe.db.rollback(save_point="eb_inbox_msg")
 				except Exception:
-					# The savepoint is gone (the transaction was rolled back
-					# under us). Nothing to undo; keep processing the batch.
-					pass
+					# A savepoint only disappears because the transaction that
+					# held it was destroyed — a dropped or reconnected
+					# connection, or persist_message's own inner rollback
+					# failing. That same loss took every row this batch already
+					# persisted, so `accepted` now names messages the database
+					# no longer holds. The cause differs from the deadlock
+					# above but the damage is identical, so the response must
+					# be too: abandon the batch unacknowledged and let the
+					# broker redeliver all of it. Continuing here instead would
+					# acknowledge rows that no longer exist and lose those
+					# messages permanently.
+					frappe.log_error(
+						title="Event Bus: inbox persist lost the transaction",
+						message=frappe.get_traceback(),
+					)
+					accepted.clear()
+					counts["received"] = counts["ignored"] = 0
+					break
 				frappe.log_error(
 					title="Event Bus: inbox persist failed",
 					message=frappe.get_traceback(),
