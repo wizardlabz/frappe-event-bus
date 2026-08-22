@@ -23,6 +23,8 @@ pre-commit run --all-files
 
 The configuration runs `ruff` (import sorting, linting, formatting), `prettier`, and `eslint`, plus whitespace, AST, JSON, TOML, and YAML checks. Built assets under `public/dist/` are gitignored and excluded.
 
+**Run it through `pre-commit`, not through whatever `ruff` is on your PATH.** `.pre-commit-config.yaml` pins the exact versions CI uses, and a newer ruff disagrees with them — it reformats files the pinned version leaves alone, and reports rules the pinned version does not. Formatting with a system ruff has already produced a diff that looked clean locally and failed the Linter workflow.
+
 ## Tests
 
 ```bash
@@ -40,7 +42,9 @@ Two conventions the existing suite follows, both learned from CI failures:
 
 **Do not depend on site state.** `Event Bus Settings.enabled` defaults to `0`, so any test expecting outbox rows must enable the bus itself. A test that relies on your bench already having it enabled will fail on a fresh site.
 
-Creating a DocType is DDL, which commits implicitly and escapes `FrappeTestCase`'s per-test rollback. Build such fixtures in `setUpClass` and remove them in `tearDownClass`.
+**`FrappeTestCase` rolls back once per class, not per test method.** The only rollback it registers by default is `addClassCleanup(_rollback_db)`, so rows written by one test method are still there when the next method in the same class runs. Tests that insert rows another test then counts or looks up need explicit cleanup in `setUp` — this has already caused two failures that looked like logic bugs and were not.
+
+Creating a DocType is DDL, which commits implicitly and so escapes even that class-scoped rollback. Build such fixtures in `setUpClass` and remove them in `tearDownClass`.
 
 **Guard whitelisted endpoints with `frappe.has_permission`, not `frappe.only_for`.** `only_for` returns early whenever `frappe.flags.in_test` is set:
 
