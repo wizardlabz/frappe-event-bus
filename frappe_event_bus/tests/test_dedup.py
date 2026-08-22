@@ -32,7 +32,7 @@ def _message(**overrides):
 
 class TestDedupKey(FrappeTestCase):
 	def test_payload_hash_is_the_sha256_of_the_raw_body(self):
-		expected = hashlib.sha256('{"order_id": "SO-1"}'.encode()).hexdigest()
+		expected = hashlib.sha256(b'{"order_id": "SO-1"}').hexdigest()
 		self.assertEqual(compute_dedup_key(_consumer("Payload Hash"), _message()), expected)
 
 	def test_external_message_id_uses_the_broker_id(self):
@@ -53,18 +53,18 @@ class TestDedupKey(FrappeTestCase):
 
 	def test_an_empty_expression_falls_back_to_the_payload_hash(self):
 		"""A misconfigured expression must never disable deduplication."""
-		expected = hashlib.sha256('{"order_id": "SO-1"}'.encode()).hexdigest()
+		expected = hashlib.sha256(b'{"order_id": "SO-1"}').hexdigest()
 		consumer = _consumer("Custom Expression", "{{ payload.missing }}")
 		self.assertEqual(compute_dedup_key(consumer, _message()), expected)
 
 	def test_a_missing_broker_id_falls_back_to_the_payload_hash(self):
-		expected = hashlib.sha256('{"order_id": "SO-1"}'.encode()).hexdigest()
+		expected = hashlib.sha256(b'{"order_id": "SO-1"}').hexdigest()
 		message = _message(provider_message_id=None)
 		self.assertEqual(compute_dedup_key(_consumer("External Message ID"), message), expected)
 
 	def test_a_partially_resolved_expression_falls_back_to_the_payload_hash(self):
 		"""A half-rendered key would collide across unrelated messages."""
-		expected = hashlib.sha256('{"order_id": "SO-1"}'.encode()).hexdigest()
+		expected = hashlib.sha256(b'{"order_id": "SO-1"}').hexdigest()
 		consumer = _consumer("Custom Expression", "{{ consumer.name }}-{{ payload.missing }}")
 		self.assertEqual(compute_dedup_key(consumer, _message()), expected)
 
