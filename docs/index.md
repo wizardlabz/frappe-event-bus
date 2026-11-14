@@ -21,6 +21,7 @@ For a project overview see the [README](../README.md).
 | [The Outbox](concepts/outbox.md) | Durability, statuses, the worker, double-delivery safety. |
 | [Retry and Replay](concepts/retry-and-replay.md) | Backoff, dead-lettering, replay, retention. |
 | [Providers](concepts/providers.md) | The registry and the publish interface. |
+| [Consumers](concepts/consumers.md) | Receiving messages from a broker into the Inbox. |
 
 ## Reference
 
@@ -62,7 +63,7 @@ The core owns rules, templates, the outbox, delivery logging, retry, replay, and
 
 This is the **publisher**: Frappe → broker. Version 0.1 covers rules, templates, the outbox, retry, replay, retention, and the RabbitMQ provider.
 
-Consuming — broker → Frappe, via an Inbox mirroring the Outbox — is designed but not built. It is v0.3. Nothing in this documentation describes consumer behaviour, because none exists yet.
+The other direction, broker → Frappe, has an ingestion phase: an Event Bus Consumer polls a broker source and writes accepted messages into an Inbox, deduplicated. See [Consumers](concepts/consumers.md). Consumers ship disabled, and nothing yet acts on a message once it is in the Inbox — there is no handler, and no ERPNext document is created or modified by this feature. That processing phase is not built.
 
 ---
 
