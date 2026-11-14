@@ -83,7 +83,7 @@ Scope is deliberately one direction: **Frappe → broker**. Consuming is designe
 
 - **The deduplication key is not enforced.** It is rendered, stored, and handed to the provider, but nothing checks it for uniqueness. Enforced deduplication arrives with the Inbox in 0.3.0.
 - **The `Cancelled` and `Replayed` statuses are unreachable.** Both are declared on the outbox status field and handled where they appear, but no code path assigns them.
-- **No consumer.** Broker → Frappe is designed in the plan but not implemented.
+- **No consumer.** Broker → Frappe is designed but not implemented.
 - **No connection pooling.** Providers open a connection per publish, which suits scheduled publishing volumes and is revisited alongside the dedicated worker mode in 0.4.0.
 - APIs may still change before 1.0.
 

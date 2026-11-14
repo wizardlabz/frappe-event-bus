@@ -85,7 +85,7 @@ frappe_event_bus_rabbitmq 1.2.0 supports frappe_event_bus >=1.0,<2.0
 
 ## Not yet available
 
-The plan describes a consume interface with two contracts — per-message acknowledgement for RabbitMQ-style brokers, batch commit for Kafka-style ones — plus a provider diagnostics page listing installed providers and their health. Neither ships today; both are v0.3 work. Only the publish path above exists.
+Two things do not ship today: a consume interface with two contracts — per-message acknowledgement for RabbitMQ-style brokers, batch commit for Kafka-style ones — and a provider diagnostics page listing installed providers and their health. Both are v0.3 work. Only the publish path above exists.
 
 ## Related
 

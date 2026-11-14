@@ -8,7 +8,7 @@
 
 ## 1. Why this is split
 
-v0.3 in the project plan is four doctypes, a polling worker, deduplication, per-key ordering, two provider consume contracts, an inbound RabbitMQ consumer, and three handler action types. Built as one unit, none of it is testable until nearly all of it exists.
+v0.3 in full is four doctypes, a polling worker, deduplication, per-key ordering, two provider consume contracts, an inbound RabbitMQ consumer, and three handler action types. Built as one unit, none of it is testable until nearly all of it exists.
 
 The Inbox is a natural seam:
 
@@ -50,9 +50,9 @@ There is no ordering in which a message is acknowledged but not stored. Redelive
 
 ## 3. Consume contract
 
-### Correction to the plan
+### Why a session
 
-The plan sketches `receive_batch(consumer_doc, max_messages)` and `acknowledge(consumer_doc, provider_message)` as independent calls. That cannot work for RabbitMQ: **delivery tags are scoped to the channel that delivered them**, so acknowledging on a freshly opened channel is invalid. The existing publisher opens and closes a connection per call, which is correct for publishing and wrong for consuming.
+The obvious shape is two independent calls, `receive_batch(consumer_doc, max_messages)` and `acknowledge(consumer_doc, provider_message)`. That cannot work for RabbitMQ: **delivery tags are scoped to the channel that delivered them**, so acknowledging on a freshly opened channel is invalid. The existing publisher opens and closes a connection per call, which is correct for publishing and wrong for consuming.
 
 The contract is therefore a **session** spanning receive through acknowledge:
 
@@ -108,7 +108,7 @@ Only `per_message` is implemented. `batch_commit` (Kafka and other offset-based 
 
 ### RabbitMQ implementation
 
-Polling mode uses batched `basic.get`, per the plan. A session opens one connection and one channel, issues up to `batch_size` `basic.get` calls, and holds the channel open until the worker has committed and acknowledged.
+Polling mode uses batched `basic.get`. A session opens one connection and one channel, issues up to `batch_size` `basic.get` calls, and holds the channel open until the worker has committed and acknowledged.
 
 `ack` maps to `basic_ack(delivery_tag)`. `reject` maps to `basic_nack(delivery_tag, requeue=...)`.
 
@@ -182,7 +182,7 @@ The Custom Expression context is `{"payload": ..., "headers": ..., "consumer": .
 | `max_payload_bytes` | Int | `1048576` | `0` disables the limit |
 | `notes` | Small Text | — | |
 
-`consumption_mode` exists from this phase because the plan requires it, but only `Scheduled Polling` is accepted. Selecting `Dedicated Worker` throws on save with a message naming v0.4, rather than silently doing nothing.
+`consumption_mode` exists from this phase, but only `Scheduled Polling` is accepted. Selecting `Dedicated Worker` throws on save with a message naming v0.4, rather than silently doing nothing.
 
 ### Event Bus Inbox Message
 
@@ -206,7 +206,7 @@ The Custom Expression context is `{"payload": ..., "headers": ..., "consumer": .
 | `last_error` | Small Text | Phase B |
 | `target_doctype` / `target_document` / `handler` | Data / Data / Link | Phase B |
 
-**Statuses.** The field carries every status from the plan on day one — `Received`, `Processing`, `Processed`, `Retry Scheduled`, `Failed`, `Dead Lettered`, `Ignored` — so Phase B adds behaviour rather than a schema migration.
+**Statuses.** The field carries every status of the full inbound lifecycle on day one — `Received`, `Processing`, `Processed`, `Retry Scheduled`, `Failed`, `Dead Lettered`, `Ignored` — so Phase B adds behaviour rather than a schema migration.
 
 Phase A only ever assigns **`Received`** and **`Ignored`**. This is documented rather than left implicit: the outbox already carries two statuses (`Cancelled`, `Replayed`) that no code assigns, and that ambiguity should not be repeated silently.
 
@@ -341,5 +341,5 @@ Handlers, Create/Update/Upsert actions, per-ordering-key serialization, mapping 
 | Dedup scope | Global | Chosen over per-consumer; `consumer` in the key expression is the escape hatch |
 | Dedup enforcement | UNIQUE index | Read-then-write races exactly where global scope matters |
 | Batch-commit contract | Dispatch seam only | Avoids speculative code while keeping Kafka a branch, not a rewrite |
-| Poll cadence | Per-consumer via a 1-minute dispatcher | Honours the plan's Poll Interval; a busy queue and a quiet one need different budgets |
-| Consume interface | Session-scoped | Delivery tags are channel-scoped; the plan's sketch cannot ack correctly |
+| Poll cadence | Per-consumer via a 1-minute dispatcher | Each consumer keeps its own Poll Interval; a busy queue and a quiet one need different budgets |
+| Consume interface | Session-scoped | Delivery tags are channel-scoped; independent receive and acknowledge calls cannot ack correctly |

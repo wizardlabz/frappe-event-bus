@@ -69,4 +69,4 @@ bench --site <site> enable-scheduler
 
 ## Not yet available
 
-The plan lists further settings — a default retry policy, a default queue, payload-preview and replay toggles, and a default consumption mode. None exist today. The six fields above are the complete set.
+There is no default retry policy, default queue, payload-preview or replay toggle, or default consumption mode. The six fields above are the complete set.

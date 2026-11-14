@@ -142,4 +142,4 @@ Rules, templates, the outbox, retry scheduling, replay, delivery logging, retent
 
 ## Consumers
 
-The plan defines two consume contracts — per-message acknowledgement and batch commit — so providers can match their broker's semantics. Neither exists in the core yet; they arrive in v0.3. Build the publish path today.
+Consuming will come with two contracts — per-message acknowledgement and batch commit — so providers can match their broker's semantics. Neither exists in the core yet; they arrive in v0.3. Build the publish path today.

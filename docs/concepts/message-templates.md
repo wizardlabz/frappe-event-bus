@@ -116,7 +116,7 @@ Publishing uses the raising counterpart of the preview renderer. A template that
 
 ## Not yet available
 
-The plan describes `message_type` and `version` fields on the template. Neither exists today — express the message type as a field inside the payload, as the examples do.
+Templates have no `message_type` or `version` field today. Express the message type as a field inside the payload, as the examples do.
 
 ## Related
 
